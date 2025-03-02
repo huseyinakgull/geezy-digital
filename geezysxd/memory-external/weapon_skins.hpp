@@ -3,7 +3,7 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
-#include "../memory-external/memory/memory.hpp"
+#include "memory/memory.hpp"
 #include "config.hpp"
 
 namespace geezy_digital {
@@ -41,9 +41,14 @@ namespace geezy_digital {
         WeaponOffsets m_offsets;
         std::unordered_map<int, SkinInfo> m_skins;
         bool m_enabled;
+        bool m_autoUpdate;
+        int m_updateInterval;
 
         // Silah ID'sinden skin bilgisi al
         SkinInfo* GetSkinInfoByWeaponID(int weaponID);
+
+        // Özel silahlarý iþle
+        void ProcessWeapons();
 
     public:
         WeaponSkinManager(Memory::MemoryManager& memoryManager, Config::ConfigManager& configManager);
@@ -61,8 +66,10 @@ namespace geezy_digital {
         // Skinleri uygula
         void ApplySkins();
 
-        // Bellek tarama ve offsetlarý bulma
-        bool ScanForOffsets();
+        // Skinleri otomatik uygula
+        void StartAutoUpdate();
+        void StopAutoUpdate();
+        bool IsAutoUpdateEnabled() const;
 
         // Yöneticiyi etkinleþtir/devre dýþý býrak
         void Enable(bool enable);

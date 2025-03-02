@@ -3,59 +3,64 @@
 #include <thread>
 #include <chrono>
 #include <Windows.h>
-#include <Psapi.h>
-#include "../memory-external/memory/memory.hpp"
-#include "signature_scanner.hpp"
-#include "offset_manager.hpp"
+#include "memory/memory.hpp"
 #include "config.hpp"
 #include "weapon_skins.hpp"
 
 #pragma comment(lib, "Psapi.lib")
 
-// Game-specific constants
 constexpr const char* GAME_PROCESS = "cs2.exe";
 constexpr const char* GAME_CLIENT_MODULE = "client.dll";
-constexpr const char* OFFSETS_FILE = "offsets.json";
 constexpr const char* CONFIG_FILE = "config.json";
+bool g_isAutoUpdateEnabled = false;
+bool g_isSkinChangerEnabled = false;
+bool g_isRunning = true;
 
-// Forward declarations
-void MenuSkinManager(Memory::MemoryManager& memManager, Config::ConfigManager& configManager);
 
 void DisplayMenu() {
-    std::cout << "\n=== CS2 Bellek Analiz Araci ===\n";
+    std::cout << "\n=== CS2 Skin Changer ===\n";
     std::cout << "1. Oyuna baglan\n";
-    std::cout << "2. Imza taramasi yap\n";
-    std::cout << "3. Offsetleri guncelle\n";
-    std::cout << "4. Bellek analizi baslat\n";
-    std::cout << "5. Skin yoneticisi\n";
-    std::cout << "6. Cikis\n";
+    std::cout << "2. Skinleri yukle\n";
+    std::cout << "3. Skin ekle/guncelle\n";
+    std::cout << "4. Skinleri uygula\n";
+    std::cout << "5. Otomatik guncelleyi " << (g_isAutoUpdateEnabled ? "kapat" : "ac") << "\n";
+    std::cout << "6. Skin Changer'i " << (g_isSkinChangerEnabled ? "devre disi birak" : "etkinlestir") << "\n";
+    std::cout << "7. Cikis\n";
     std::cout << "Seciminiz: ";
+}
+
+void AutoUpdateThread(geezy_digital::WeaponSkinManager& skinManager, int updateInterval) {
+    while (g_isRunning) {
+        if (g_isAutoUpdateEnabled && g_isSkinChangerEnabled) {
+            skinManager.ApplySkins();
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(updateInterval));
+    }
 }
 
 int main() {
     // Initialize components
     Memory::MemoryManager memoryManager(GAME_PROCESS);
-    Offsets::OffsetManager offsetManager(OFFSETS_FILE);
     Config::ConfigManager configManager(CONFIG_FILE);
-
-    std::cout << "=== CS2 Bellek Analiz Araci ===\n";
-    std::cout << "Bug Bounty programi icin gelistirilmistir\n";
-    std::cout << "Etik amaclar icin kullaniniz!\n\n";
 
     // Check for config
     if (!configManager.LoadConfig()) {
-        std::cout << "[BILGI] Konfigurasyon dosyasi olusturuldu." << std::endl;
         configManager.SaveConfig();
-    }
-
-    // Attempt to load offsets
-    if (!offsetManager.LoadOffsets()) {
-        std::cout << "[BILGI] Offsetler yuklenemedi, guncel offsetleri almak icin secim 3'u secin.\n";
     }
 
     bool running = true;
     bool gameConnected = false;
     uintptr_t clientModuleBase = 0;
+
+    // Skin manager (will be created after connecting)
+    std::unique_ptr<geezy_digital::WeaponSkinManager> skinManager;
+
+    g_isAutoUpdateEnabled = configManager.GetBool("SkinChanger.AutoUpdate", false);
+    g_isSkinChangerEnabled = configManager.GetBool("SkinChanger.Enabled", false);
+    int updateInterval = configManager.GetInt("SkinChanger.UpdateInterval", 1000);
+
+    // Auto update thread
+    std::thread autoUpdateThread;
 
     while (running) {
         DisplayMenu();
@@ -71,6 +76,20 @@ int main() {
                     std::cout << "[BASARI] " << GAME_CLIENT_MODULE << " modulu bulundu: 0x"
                         << std::hex << clientModuleBase << std::dec << std::endl;
                     gameConnected = true;
+
+                    // Create skin manager after connecting
+                    skinManager = std::make_unique<geezy_digital::WeaponSkinManager>(memoryManager, configManager);
+
+                    // Start auto update thread
+                    if (!autoUpdateThread.joinable()) {
+                        autoUpdateThread = std::thread(AutoUpdateThread, std::ref(*skinManager), updateInterval);
+                    }
+
+                    // Apply settings
+                    skinManager->Enable(g_isSkinChangerEnabled);
+                    if (g_isAutoUpdateEnabled) {
+                        skinManager->StartAutoUpdate();
+                    }
                 }
                 else {
                     std::cout << "[HATA] " << GAME_CLIENT_MODULE << " modulu bulunamadi.\n";
@@ -78,149 +97,20 @@ int main() {
             }
             break;
 
-        case 2: // Run signature scan
+        case 2: // Load skins
+            if (!gameConnected) {
+                std::cout << "[HATA] Once oyuna baglanmalisiniz (secim 1).\n";
+                break;
+            }
+            skinManager->LoadSkins();
+            break;
+
+        case 3: { // Add/update skin
             if (!gameConnected) {
                 std::cout << "[HATA] Once oyuna baglanmalisiniz (secim 1).\n";
                 break;
             }
 
-            {
-                // Get module info for scanning
-                MODULEINFO moduleInfo = { 0 };
-                HMODULE hModule = reinterpret_cast<HMODULE>(clientModuleBase);
-                if (GetModuleInformation(memoryManager.GetProcessHandle(), hModule, &moduleInfo, sizeof(moduleInfo))) {
-                    // Create signature scanner with memory manager
-                    Scanner::SignatureScanner scanner(memoryManager, clientModuleBase, moduleInfo.SizeOfImage);
-
-                    // Run the scan
-                    auto results = scanner.ScanForAllSignatures();
-
-                    // Display and update offsets
-                    for (const auto& [name, address] : results) {
-                        if (address != 0) {
-                            offsetManager.SetOffset(name, address - clientModuleBase); // Store as offset from base
-                        }
-                    }
-
-                    offsetManager.SaveOffsets();
-                }
-                else {
-                    std::cout << "[HATA] Modul bilgisi alinamadi.\n";
-                }
-            }
-            break;
-
-        case 3: // Update offsets
-            if (offsetManager.UpdateOffsetsFromRepository("https://github.com/a2x/cs2-dumper")) {
-                // Reload the offsets after update
-                offsetManager.LoadOffsets();
-            }
-            break;
-
-        case 4: // Start memory analysis
-            if (!gameConnected) {
-                std::cout << "[HATA] Once oyuna baglanmalisiniz (secim 1).\n";
-                break;
-            }
-
-            if (!offsetManager.IsBuildCurrent(0)) { // 0 is a placeholder, would need actual build checking
-                std::cout << "[UYARI] Offsetler guncel olmayabilir. Devam etmek istiyor musunuz? (E/H): ";
-                char confirm;
-                std::cin >> confirm;
-                if (confirm != 'E' && confirm != 'e') {
-                    break;
-                }
-            }
-
-            std::cout << "[BILGI] Bellek analizi baslatiliyor...\n";
-
-            {
-                bool analyzing = true;
-
-                // Example: Get EntityList and LocalPlayer offsets
-                uintptr_t entityListOffset = offsetManager.GetOffset("dwEntityList");
-                uintptr_t localPlayerOffset = offsetManager.GetOffset("dwLocalPlayer");
-
-                if (entityListOffset == 0 || localPlayerOffset == 0) {
-                    std::cout << "[HATA] Gerekli offsetler eksik. Lutfen imza taramasi yapin (secim 2).\n";
-                    break;
-                }
-
-                // Example memory analysis loop
-                while (analyzing) {
-                    // Calculate absolute addresses
-                    uintptr_t entityListAddr = clientModuleBase + entityListOffset;
-                    uintptr_t localPlayerAddr = clientModuleBase + localPlayerOffset;
-
-                    // Read local player pointer
-                    uintptr_t localPlayer = memoryManager.Read<uintptr_t>(localPlayerAddr);
-
-                    if (localPlayer != 0) {
-                        // Read player health as an example
-                        int health = memoryManager.Read<int>(localPlayer + offsetManager.GetOffset("m_iHealth"));
-                        std::cout << "[BILGI] Oyuncu can: " << health << std::endl;
-                    }
-
-                    // Wait before next check
-                    std::this_thread::sleep_for(std::chrono::milliseconds(500));
-
-                    // Check for exit condition (could be improved with proper input handling)
-                    std::cout << "Analizi durdurmak icin 'q' tusuna basin: ";
-                    char input;
-                    if (std::cin.peek() == 'q') {
-                        analyzing = false;
-                    }
-                }
-            }
-            break;
-
-        case 5: // Skin manager
-            if (!gameConnected) {
-                std::cout << "[HATA] Once oyuna baglanmalisiniz (secim 1).\n";
-                break;
-            }
-            MenuSkinManager(memoryManager, configManager);
-            break;
-
-        case 6: // Exit
-            running = false;
-            break;
-
-        default:
-            std::cout << "[HATA] Gecersiz secim.\n";
-            break;
-        }
-    }
-
-    std::cout << "[BILGI] Program sonlandiriliyor...\n";
-    return 0;
-}
-
-// Skin Manager Menu implementation
-void MenuSkinManager(Memory::MemoryManager& memManager, Config::ConfigManager& configManager) {
-    // Create weapon skin manager
-    geezy_digital::WeaponSkinManager skinManager(memManager, configManager);
-
-    bool running = true;
-
-    while (running) {
-        std::cout << "\n=== Skin Yoneticisi ===\n";
-        std::cout << "1. Skinleri yukle\n";
-        std::cout << "2. Skin ekle/guncelle\n";
-        std::cout << "3. Skinleri uygula\n";
-        std::cout << "4. Skin yoneticisini " << (skinManager.IsEnabled() ? "devre disi birak" : "etkinlestir") << "\n";
-        std::cout << "5. Geri\n";
-        std::cout << "Seciminiz: ";
-
-        int choice;
-        std::cin >> choice;
-
-        switch (choice) {
-        case 1: // Load skins
-            skinManager.LoadSkins();
-            break;
-
-        case 2: { // Add/update skin
             int weaponID, skinID, seed, statTrak;
             float wear;
 
@@ -239,21 +129,45 @@ void MenuSkinManager(Memory::MemoryManager& memManager, Config::ConfigManager& c
             std::cout << "StatTrak (-1 for disabled): ";
             std::cin >> statTrak;
 
-            skinManager.SetSkin(weaponID, skinID, wear, seed, statTrak);
-            skinManager.SaveSkins();
+            skinManager->SetSkin(weaponID, skinID, wear, seed, statTrak);
+            skinManager->SaveSkins();
             break;
         }
 
-        case 3: // Apply skins
-            skinManager.ApplySkins();
+        case 4: // Apply skins
+            if (!gameConnected) {
+                std::cout << "[HATA] Once oyuna baglanmalisiniz (secim 1).\n";
+                break;
+            }
+            skinManager->ApplySkins();
             break;
 
-        case 4: // Toggle
-            skinManager.Enable(!skinManager.IsEnabled());
+        case 5: // Toggle auto update
+            if (!gameConnected) {
+                std::cout << "[HATA] Once oyuna baglanmalisiniz (secim 1).\n";
+                break;
+            }
+            g_isAutoUpdateEnabled = !g_isAutoUpdateEnabled;
+            if (g_isAutoUpdateEnabled) {
+                skinManager->StartAutoUpdate();
+            }
+            else {
+                skinManager->StopAutoUpdate();
+            }
             break;
 
-        case 5: // Back
+        case 6: // Toggle skin changer
+            if (!gameConnected) {
+                std::cout << "[HATA] Once oyuna baglanmalisiniz (secim 1).\n";
+                break;
+            }
+            g_isSkinChangerEnabled = !g_isSkinChangerEnabled;
+            skinManager->Enable(g_isSkinChangerEnabled);
+            break;
+
+        case 7: // Exit
             running = false;
+            g_isRunning = false;
             break;
 
         default:
@@ -261,4 +175,12 @@ void MenuSkinManager(Memory::MemoryManager& memManager, Config::ConfigManager& c
             break;
         }
     }
+
+    // Wait for auto update thread to finish
+    if (autoUpdateThread.joinable()) {
+        autoUpdateThread.join();
+    }
+
+    std::cout << "[BILGI] Program sonlandiriliyor...\n";
+    return 0;
 }

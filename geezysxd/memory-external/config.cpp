@@ -104,8 +104,46 @@ namespace Config {
         }
     }
 
+    uintptr_t ConfigManager::GetOffset(const std::string& name, uintptr_t defaultValue) const {
+        if (!isLoaded || !configData.contains("Offsets") || !configData["Offsets"].contains(name)) {
+            return defaultValue;
+        }
+
+        try {
+            return configData["Offsets"][name].get<uintptr_t>();
+        }
+        catch (...) {
+            return defaultValue;
+        }
+    }
+
+    uintptr_t ConfigManager::GetWeaponOffset(const std::string& name, uintptr_t defaultValue) const {
+        if (!isLoaded || !configData.contains("WeaponOffsets") || !configData["WeaponOffsets"].contains(name)) {
+            return defaultValue;
+        }
+
+        try {
+            return configData["WeaponOffsets"][name].get<uintptr_t>();
+        }
+        catch (...) {
+            return defaultValue;
+        }
+    }
+
+    json ConfigManager::GetSection(const std::string& sectionName) const {
+        if (!isLoaded || !configData.contains(sectionName)) {
+            return json::object();
+        }
+
+        return configData.at(sectionName);
+    }
+
     bool ConfigManager::HasKey(const std::string& key) const {
         return isLoaded && configData.contains(key);
+    }
+
+    bool ConfigManager::HasSection(const std::string& section) const {
+        return isLoaded && configData.contains(section);
     }
 
     void ConfigManager::LogInfo(const std::string& message) {
@@ -114,5 +152,9 @@ namespace Config {
 
     void ConfigManager::LogError(const std::string& message) {
         std::cout << "[HATA] " << message << std::endl;
+    }
+
+    void ConfigManager::LogSuccess(const std::string& message) {
+        std::cout << "[BASARI] " << message << std::endl;
     }
 }

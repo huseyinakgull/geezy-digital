@@ -1,30 +1,36 @@
 #include "weapon_skins.hpp"
 #include <iostream>
-#include "signature_scanner.hpp"
+#include <thread>
+#include <chrono>
 
 namespace geezy_digital {
 
     // WeaponOffsets sýnýfý
     void WeaponOffsets::UpdateFromConfig(const Config::ConfigManager& configManager) {
         // Konfigürasyon dosyasýndan offset deðerlerini oku
-        itemDefinitionIndex = configManager.GetInt("Offset.ItemDefinitionIndex", 0x2FAA);
-        fallbackPaintKit = configManager.GetInt("Offset.FallbackPaintKit", 0x31C8);
-        fallbackWear = configManager.GetInt("Offset.FallbackWear", 0x31D0);
-        fallbackSeed = configManager.GetInt("Offset.FallbackSeed", 0x31CC);
-        itemIDHigh = configManager.GetInt("Offset.ItemIDHigh", 0x2FC0);
-        accountID = configManager.GetInt("Offset.AccountID", 0x2FC8);
-        fallbackStatTrak = configManager.GetInt("Offset.FallbackStatTrak", 0x31D4);
-        entityQuality = configManager.GetInt("Offset.EntityQuality", 0x2FAC);
+        itemDefinitionIndex = configManager.GetWeaponOffset("ItemDefinitionIndex", 12202);
+        fallbackPaintKit = configManager.GetWeaponOffset("FallbackPaintKit", 12744);
+        fallbackWear = configManager.GetWeaponOffset("FallbackWear", 12752);
+        fallbackSeed = configManager.GetWeaponOffset("FallbackSeed", 12748);
+        itemIDHigh = configManager.GetWeaponOffset("ItemIDHigh", 12224);
+        accountID = configManager.GetWeaponOffset("AccountID", 12232);
+        fallbackStatTrak = configManager.GetWeaponOffset("FallbackStatTrak", 12756);
+        entityQuality = configManager.GetWeaponOffset("EntityQuality", 12204);
 
         std::cout << "[BILGI] Weapon offsetleri yuklendi" << std::endl;
     }
 
     // WeaponSkinManager sýnýfý
     WeaponSkinManager::WeaponSkinManager(Memory::MemoryManager& memoryManager, Config::ConfigManager& configManager)
-        : m_memoryManager(memoryManager), m_configManager(configManager), m_enabled(false) {
+        : m_memoryManager(memoryManager), m_configManager(configManager), m_enabled(false), m_autoUpdate(false), m_updateInterval(1000) {
 
         // Offsetleri yapýlandýrmadan yükle
         m_offsets.UpdateFromConfig(configManager);
+
+        // Ayarlarý yapýlandýrmadan yükle
+        m_enabled = configManager.GetBool("SkinChanger.Enabled", false);
+        m_autoUpdate = configManager.GetBool("SkinChanger.AutoUpdate", false);
+        m_updateInterval = configManager.GetInt("SkinChanger.UpdateInterval", 1000);
 
         // Skinleri yükle
         LoadSkins();
@@ -33,27 +39,29 @@ namespace geezy_digital {
     bool WeaponSkinManager::LoadSkins() {
         try {
             // Ayarlardan skin bilgilerini oku
-            int skinCount = m_configManager.GetInt("Skins.Count", 0);
+            json skinsJson = m_configManager.GetSection("Skins");
+            if (skinsJson.empty()) {
+                std::cout << "[BILGI] Skin bulunamadi veya bos" << std::endl;
+                return true;
+            }
 
             m_skins.clear();
 
-            for (int i = 0; i < skinCount; i++) {
-                std::string prefix = "Skins[" + std::to_string(i) + "].";
-
+            for (const auto& skinItem : skinsJson) {
                 SkinInfo skin;
-                int weaponID = m_configManager.GetInt(prefix + "WeaponID", 0);
+                int weaponID = skinItem.value("WeaponID", 0);
 
-                skin.id = m_configManager.GetInt(prefix + "SkinID", 0);
-                skin.name = m_configManager.GetString(prefix + "Name", "");
-                skin.wear = m_configManager.GetFloat(prefix + "Wear", 0.01f);
-                skin.seed = m_configManager.GetInt(prefix + "Seed", 0);
-                skin.statTrak = m_configManager.GetInt(prefix + "StatTrak", -1);
-                skin.enabled = m_configManager.GetBool(prefix + "Enabled", true);
+                skin.id = skinItem.value("SkinID", 0);
+                skin.name = skinItem.value("Name", "");
+                skin.wear = skinItem.value("Wear", 0.01f);
+                skin.seed = skinItem.value("Seed", 0);
+                skin.statTrak = skinItem.value("StatTrak", -1);
+                skin.enabled = skinItem.value("Enabled", true);
 
                 m_skins[weaponID] = skin;
             }
 
-            std::cout << "[BASARI] " << skinCount << " adet skin yuklendi" << std::endl;
+            std::cout << "[BASARI] " << m_skins.size() << " adet skin yuklendi" << std::endl;
             return true;
         }
         catch (const std::exception& e) {
@@ -64,23 +72,27 @@ namespace geezy_digital {
 
     bool WeaponSkinManager::SaveSkins() {
         try {
-            // Skin sayýsýný kaydet
-            m_configManager.Set("Skins.Count", static_cast<int>(m_skins.size()));
+            // Skinleri JSON dizisine dönüþtür
+            json skinsArray = json::array();
 
-            int index = 0;
             for (const auto& [weaponID, skin] : m_skins) {
-                std::string prefix = "Skins[" + std::to_string(index) + "].";
+                json skinItem;
+                skinItem["WeaponID"] = weaponID;
+                skinItem["SkinID"] = skin.id;
+                skinItem["Name"] = skin.name;
+                skinItem["Wear"] = skin.wear;
+                skinItem["Seed"] = skin.seed;
+                skinItem["StatTrak"] = skin.statTrak;
+                skinItem["Enabled"] = skin.enabled;
 
-                m_configManager.Set(prefix + "WeaponID", weaponID);
-                m_configManager.Set(prefix + "SkinID", skin.id);
-                m_configManager.Set(prefix + "Name", skin.name);
-                m_configManager.Set(prefix + "Wear", skin.wear);
-                m_configManager.Set(prefix + "Seed", skin.seed);
-                m_configManager.Set(prefix + "StatTrak", skin.statTrak);
-                m_configManager.Set(prefix + "Enabled", skin.enabled);
-
-                index++;
+                skinsArray.push_back(skinItem);
             }
+
+            // Ayarlar nesnesini güncelle
+            m_configManager.Set("Skins", skinsArray);
+            m_configManager.SetNested("SkinChanger", "Enabled", m_enabled);
+            m_configManager.SetNested("SkinChanger", "AutoUpdate", m_autoUpdate);
+            m_configManager.SetNested("SkinChanger", "UpdateInterval", m_updateInterval);
 
             // Ayarlarý kaydet
             m_configManager.SaveConfig();
@@ -107,15 +119,11 @@ namespace geezy_digital {
         std::cout << "[BILGI] Weapon ID " << weaponID << " icin skin ayarlandi: " << skinID << std::endl;
     }
 
-    void WeaponSkinManager::ApplySkins() {
-        if (!m_enabled) {
-            return;
-        }
-
+    void WeaponSkinManager::ProcessWeapons() {
         // Local player pointer
+        uintptr_t clientModule = m_memoryManager.GetModuleBaseAddress("client.dll");
         uintptr_t localPlayerPtr = m_memoryManager.Read<uintptr_t>(
-            m_memoryManager.GetModuleBaseAddress("client.dll") +
-            m_memoryManager.GetOffset("dwLocalPlayer")
+            clientModule + m_configManager.GetOffset("dwLocalPlayer")
         );
 
         if (!localPlayerPtr) {
@@ -123,11 +131,10 @@ namespace geezy_digital {
         }
 
         // Entity list
-        uintptr_t entityList = m_memoryManager.GetModuleBaseAddress("client.dll") +
-            m_memoryManager.GetOffset("dwEntityList");
+        uintptr_t entityList = clientModule + m_configManager.GetOffset("dwEntityList");
 
         // Read local player ID
-        int localPlayerID = m_memoryManager.Read<int>(localPlayerPtr + m_memoryManager.GetOffset("m_iTeamNum"));
+        int localPlayerID = m_memoryManager.Read<int>(localPlayerPtr + m_configManager.GetOffset("m_iTeamNum"));
 
         // Weapon count is typically 64 (maximum number of entities/weapons to check)
         constexpr int MAX_WEAPONS = 64;
@@ -172,22 +179,28 @@ namespace geezy_digital {
         }
     }
 
-    bool WeaponSkinManager::ScanForOffsets() {
-        std::cout << "[BILGI] Weapon offsetleri icin tarama baslatiliyor..." << std::endl;
-
-        uintptr_t clientModule = m_memoryManager.GetModuleBaseAddress("client.dll");
-        if (!clientModule) {
-            std::cout << "[HATA] client.dll bulunamadi" << std::endl;
-            return false;
+    void WeaponSkinManager::ApplySkins() {
+        if (!m_enabled) {
+            std::cout << "[BILGI] Skin Changer devre disi, skinler uygulanmadi" << std::endl;
+            return;
         }
 
-        // Burada imza taramasý ile offset deðerleri bulunabilir
-        // Örnek: "48 8D 05 ? ? ? ? 48 8B 18 48 85 DB 74 2A" gibi imzalarla bellek taramasý yapýlýr
+        ProcessWeapons();
+        std::cout << "[BILGI] Skinler uygulandi" << std::endl;
+    }
 
-        // Bu deðerler manuel olarak konfigurasyon dosyasýna kaydedilebilir veya direkt olarak yapýya atanabilir
+    void WeaponSkinManager::StartAutoUpdate() {
+        m_autoUpdate = true;
+        std::cout << "[BILGI] Otomatik skin guncelleme etkinlestirildi" << std::endl;
+    }
 
-        std::cout << "[BILGI] Weapon offsetleri basariyla taranýp güncellendi" << std::endl;
-        return true;
+    void WeaponSkinManager::StopAutoUpdate() {
+        m_autoUpdate = false;
+        std::cout << "[BILGI] Otomatik skin guncelleme durduruldu" << std::endl;
+    }
+
+    bool WeaponSkinManager::IsAutoUpdateEnabled() const {
+        return m_autoUpdate;
     }
 
     void WeaponSkinManager::Enable(bool enable) {
