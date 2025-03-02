@@ -217,6 +217,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="classes\json.hpp" />
+    <ClInclude Include="config.hpp" />
     <ClInclude Include="memory\handle_hijack.hpp" />
     <ClInclude Include="memory\memory.hpp" />
   </ItemGroup>

@@ -8,19 +8,11 @@
 
 int main() {
     std::cout << "==================================================" << std::endl;
-    std::cout << "               Geezy Digital CS2 ESP              " << std::endl;
+    std::cout << "               Geezy Digital CS2 Tool             " << std::endl;
     std::cout << "==================================================" << std::endl;
 
     // Yapılandırma yöneticisi oluştur
     geezy_digital::ConfigManager configManager;
-
-    // Offsets'leri kontrol et
-    if (!configManager.AreOffsetsLoaded()) {
-        std::cout << "[geezy_digital] Hata: Offsetler yüklenemedi. Lütfen offsets.json dosyasını kontrol edin." << std::endl;
-        std::cout << "Çıkmak için Enter tuşuna basın..." << std::endl;
-        std::cin.get();
-        return -1;
-    }
 
     // Process Manager örneği oluştur
     geezy_digital::ProcessManager processManager;
@@ -41,7 +33,7 @@ int main() {
     std::cout << "[geezy_digital] Bellek manipülasyonu başlatıldı..." << std::endl;
 
     // Yapılandırma değerlerini al
-    auto& espConfig = configManager.GetESPConfig();
+    auto& appConfig = configManager.GetAppConfig();
     auto& keyBindings = configManager.GetKeyBindings();
     auto& offsets = configManager.GetOffsets();
 
@@ -51,20 +43,18 @@ int main() {
     // Ana döngü
     while (running) {
         // Tuş kontrollerini yap
-        if (GetAsyncKeyState(keyBindings.toggleEspKey) & 1) { // F1 tuşuna basıldığında
-            espConfig.enabled = !espConfig.enabled;
-            std::cout << "[geezy_digital] ESP: " << (espConfig.enabled ? "Açık" : "Kapalı") << std::endl;
-            Sleep(150); // Tuş çakışmasını önlemek için
-        }
-
         if (GetAsyncKeyState(keyBindings.exitKey) & 1) { // END tuşuna basıldığında
             running = false;
             std::cout << "[geezy_digital] Program sonlandırılıyor..." << std::endl;
         }
 
-        // ESP işlevselliği burada implemente edilecek
-        if (espConfig.enabled) {
-            // Bellek manipülasyonu kodları buraya...
+        // Buraya uygulamanın ana işlevleri eklenebilir
+
+        // Debug bilgileri göster
+        if (appConfig.showDebugInfo && GetAsyncKeyState(keyBindings.toggleMenuKey) & 1) {
+            std::cout << "[geezy_digital] Debug bilgileri gösteriliyor..." << std::endl;
+            // Debug bilgilerini gösterme kodu buraya eklenebilir
+            Sleep(150); // Tuş çakışmasını önlemek için
         }
 
         // CPU kullanımını azaltmak için kısa bir bekleme
