@@ -1,253 +1,192 @@
 #include "memory.hpp"
-#include <tlhelp32.h>
 #include "handle_hijack.hpp"
+#include <tlhelp32.h>
 
-uint32_t pProcess::FindProcessIdByProcessName(const char* ProcessName)
-{
-	std::wstring wideProcessName;
-	int wideCharLength = MultiByteToWideChar(CP_UTF8, 0, ProcessName, -1, nullptr, 0);
-	if (wideCharLength > 0)
-	{
-		wideProcessName.resize(wideCharLength);
-		MultiByteToWideChar(CP_UTF8, 0, ProcessName, -1, &wideProcessName[0], wideCharLength);
-	}
+namespace geezy_digital {
 
-	HANDLE hPID = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, NULL);
-	PROCESSENTRY32W process_entry_{ };
-	process_entry_.dwSize = sizeof(PROCESSENTRY32W);
+    // Ýþlem baðlantýsý için ortak adýmlarý gerçekleþtirir
+    bool ProcessManager::GD_InitializeProcess() {
+        if (!m_processId) return false;
 
-	DWORD pid = 0;
-	if (Process32FirstW(hPID, &process_entry_))
-	{
-		do
-		{
-			if (!wcscmp(process_entry_.szExeFile, wideProcessName.c_str()))
-			{
-				pid = process_entry_.th32ProcessID;
-				break;
-			}
-		} while (Process32NextW(hPID, &process_entry_));
-	}
-	CloseHandle(hPID);
-	return pid;
-}
+        m_processHandle = OpenProcess(PROCESS_ALL_ACCESS, FALSE, m_processId);
+        if (!m_processHandle || m_processHandle == INVALID_HANDLE_VALUE) return false;
 
-uint32_t pProcess::FindProcessIdByWindowName(const char* WindowName)
-{
-	DWORD process_id = 0;
-	HWND windowHandle = FindWindowA(nullptr, WindowName);
-	if (windowHandle)
-		GetWindowThreadProcessId(windowHandle, &process_id);
-	return process_id;
-}
+        HMODULE modules[0xFF];
+        DWORD cbNeeded;
+        if (EnumProcessModulesEx(m_processHandle, modules, sizeof(modules), &cbNeeded, LIST_MODULES_64BIT)) {
+            MODULEINFO moduleInfo;
+            if (GetModuleInformation(m_processHandle, modules[0], &moduleInfo, sizeof(moduleInfo))) {
+                m_baseModule.base = (uintptr_t)modules[0];
+                m_baseModule.size = moduleInfo.SizeOfImage;
+            }
+        }
 
-HWND pProcess::GetWindowHandleFromProcessId(DWORD ProcessId) {
-	HWND hwnd = NULL;
-	do {
-		hwnd = FindWindowEx(NULL, hwnd, NULL, NULL);
-		DWORD pid = 0;
-		GetWindowThreadProcessId(hwnd, &pid);
-		if (pid == ProcessId) {
-			TCHAR windowTitle[MAX_PATH];
-			GetWindowText(hwnd, windowTitle, MAX_PATH);
-			if (IsWindowVisible(hwnd) && windowTitle[0] != '\0') {
-				return hwnd;
-			}
-		}
-	} while (hwnd != NULL);
-	return NULL; 
-}
+        m_windowHandle = GD_FindWindowHandleByProcessId(m_processId);
+        return m_baseModule.IsValid();
+    }
 
-bool pProcess::AttachProcess(const char* ProcessName)
-{
-	this->pid_ = this->FindProcessIdByProcessName(ProcessName);
+    // ProcessManager sýnýfýnýn implementasyonu
+    bool ProcessManager::GD_AttachToProcessWithHijacking(const char* processName) {
+        m_processId = GD_FindProcessIdByName(processName);
+        if (!m_processId) return false;
 
-	if (pid_)
-	{
-		HMODULE modules[0xFF];
-		MODULEINFO module_info;
-		DWORD _;
+        // Handle Hijacking kullanarak iþleme baðlan
+        m_processHandle = handle_hijack::GD_HijackHandle(m_processId);
 
-		handle_ = OpenProcess(PROCESS_ALL_ACCESS, FALSE, pid_);
+        if (!m_processHandle || m_processHandle == INVALID_HANDLE_VALUE) {
+            std::cout << "[geezy_digital] Handle Hijacking baþarýsýz oldu, OpenProcess yöntemine geçiliyor." << std::endl;
+            return GD_AttachToProcess(processName);
+        }
 
-		EnumProcessModulesEx(this->handle_, modules, sizeof(modules), &_, LIST_MODULES_64BIT);
-		base_client_.base = (uintptr_t)modules[0];
+        HMODULE modules[0xFF];
+        DWORD cbNeeded;
+        if (EnumProcessModulesEx(m_processHandle, modules, sizeof(modules), &cbNeeded, LIST_MODULES_64BIT)) {
+            MODULEINFO moduleInfo;
+            if (GetModuleInformation(m_processHandle, modules[0], &moduleInfo, sizeof(moduleInfo))) {
+                m_baseModule.base = (uintptr_t)modules[0];
+                m_baseModule.size = moduleInfo.SizeOfImage;
+            }
+        }
 
-		GetModuleInformation(this->handle_, modules[0], &module_info, sizeof(module_info));
-		base_client_.size = module_info.SizeOfImage;
+        m_windowHandle = GD_FindWindowHandleByProcessId(m_processId);
+        return m_baseModule.IsValid();
+    }
 
-		hwnd_ = this->GetWindowHandleFromProcessId(pid_);
+    // Ýþlem adýna göre iþleme baðlanýr
+    bool ProcessManager::GD_AttachToProcess(const char* processName) {
+        m_processId = GD_FindProcessIdByName(processName);
+        if (!m_processId) return false;
 
-		return true;
-	}
+        return GD_InitializeProcess();
+    }
 
-	return false;
-}
+    // Pencere adýna göre iþleme baðlanýr
+    bool ProcessManager::GD_AttachToWindow(const char* windowName) {
+        m_processId = GD_FindProcessIdByWindowName(windowName);
+        if (!m_processId) return false;
 
-bool pProcess::AttachProcessHj(const char* ProcessName)
-{
-	this->pid_ = this->FindProcessIdByProcessName(ProcessName);
+        return GD_InitializeProcess();
+    }
 
-	if (pid_)
-	{
-		HMODULE modules[0xFF];
-		MODULEINFO module_info;
-		DWORD _;
+    // Pencere handle'ýný günceller
+    bool ProcessManager::GD_UpdateWindowHandle() {
+        m_windowHandle = GD_FindWindowHandleByProcessId(m_processId);
+        return m_windowHandle != NULL;
+    }
 
-		handle_ = hj::HijackExistingHandle(pid_);
+    // Ýþlem handle'ýný kapatýr
+    void ProcessManager::GD_CloseProcess() {
+        if (m_processHandle && m_processHandle != INVALID_HANDLE_VALUE) {
+            CloseHandle(m_processHandle);
+            m_processHandle = NULL;
+        }
+    }
 
-		if (!hj::IsHandleValid(handle_))
-		{
-			std::cout << "[cheat] Handle Hijack failed, falling back to OpenProcess method." << std::endl;
-			return pProcess::AttachProcess(ProcessName);
-		}
+    // Ýþlem ID'si ile bir pencerenin handle'ýný bulur
+    HWND ProcessManager::GD_FindWindowHandleByProcessId(DWORD processId) {
+        HWND hwnd = NULL;
+        do {
+            hwnd = FindWindowEx(NULL, hwnd, NULL, NULL);
+            DWORD pid = 0;
+            GetWindowThreadProcessId(hwnd, &pid);
+            if (pid == processId) {
+                TCHAR windowTitle[MAX_PATH];
+                GetWindowText(hwnd, windowTitle, MAX_PATH);
+                if (IsWindowVisible(hwnd) && windowTitle[0] != '\0') {
+                    return hwnd;
+                }
+            }
+        } while (hwnd != NULL);
+        return NULL;
+    }
 
-		EnumProcessModulesEx(this->handle_, modules, sizeof(modules), &_, LIST_MODULES_64BIT);
-		base_client_.base = (uintptr_t)modules[0];
+    // Ýþlem adýyla iþlem ID'sini bulur
+    DWORD ProcessManager::GD_FindProcessIdByName(const char* processName) {
+        std::wstring wideProcessName;
+        int wideCharLength = MultiByteToWideChar(CP_UTF8, 0, processName, -1, nullptr, 0);
+        if (wideCharLength > 0) {
+            wideProcessName.resize(wideCharLength);
+            MultiByteToWideChar(CP_UTF8, 0, processName, -1, &wideProcessName[0], wideCharLength);
+        }
 
-		GetModuleInformation(this->handle_, modules[0], &module_info, sizeof(module_info));
-		base_client_.size = module_info.SizeOfImage;
+        HANDLE hPID = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, NULL);
+        PROCESSENTRY32W processEntry{};
+        processEntry.dwSize = sizeof(PROCESSENTRY32W);
 
-		hwnd_ = this->GetWindowHandleFromProcessId(pid_);
+        DWORD pid = 0;
+        if (Process32FirstW(hPID, &processEntry)) {
+            do {
+                if (!wcscmp(processEntry.szExeFile, wideProcessName.c_str())) {
+                    pid = processEntry.th32ProcessID;
+                    break;
+                }
+            } while (Process32NextW(hPID, &processEntry));
+        }
+        CloseHandle(hPID);
+        return pid;
+    }
 
-		return true;
-	}
+    // Pencere adýyla iþlem ID'sini bulur
+    DWORD ProcessManager::GD_FindProcessIdByWindowName(const char* windowName) {
+        DWORD processId = 0;
+        HWND windowHandle = FindWindowA(nullptr, windowName);
+        if (windowHandle) {
+            GetWindowThreadProcessId(windowHandle, &processId);
+        }
+        return processId;
+    }
 
-	return false;
-}
+    // Ýmza ile bellek içinde arama yapar
+    uintptr_t ProcessManager::GD_FindPatternInMemory(const std::vector<uint8_t>& signature, const ModuleInfo& moduleInfo) {
+        const ModuleInfo& searchModule = moduleInfo.IsValid() ? moduleInfo : m_baseModule;
+        if (!searchModule.IsValid()) return 0;
 
+        std::unique_ptr<uint8_t[]> moduleData = std::make_unique<uint8_t[]>(searchModule.size);
+        if (!m_memoryAccess.GD_ReadRaw(m_processHandle, searchModule.base, moduleData.get(), searchModule.size)) {
+            return 0;
+        }
 
-bool pProcess::AttachWindow(const char* WindowName)
-{
-	this->pid_ = this->FindProcessIdByWindowName(WindowName);
+        for (uintptr_t i = 0; i < searchModule.size; i++) {
+            bool found = true;
+            for (size_t j = 0; j < signature.size(); j++) {
+                if (signature[j] != 0x00 && moduleData[i + j] != signature[j]) {
+                    found = false;
+                    break;
+                }
+            }
+            if (found) {
+                return searchModule.base + i;
+            }
+        }
+        return 0;
+    }
 
-	if (pid_)
-	{
-		HMODULE modules[0xFF];
-		MODULEINFO module_info;
-		DWORD _;
+    // Ýþlem modülünü isimle alýr
+    ModuleInfo ProcessManager::GD_GetModuleByName(const char* moduleName) {
+        std::wstring wideModule;
+        int wideCharLength = MultiByteToWideChar(CP_UTF8, 0, moduleName, -1, nullptr, 0);
+        if (wideCharLength > 0) {
+            wideModule.resize(wideCharLength);
+            MultiByteToWideChar(CP_UTF8, 0, moduleName, -1, &wideModule[0], wideCharLength);
+        }
 
-		handle_ = OpenProcess(PROCESS_ALL_ACCESS, FALSE, pid_);
+        HANDLE handleModule = CreateToolhelp32Snapshot(TH32CS_SNAPMODULE, m_processId);
+        MODULEENTRY32W moduleEntry{};
+        moduleEntry.dwSize = sizeof(MODULEENTRY32W);
 
-		EnumProcessModulesEx(this->handle_, modules, sizeof(modules), &_, LIST_MODULES_64BIT);
-		base_client_.base = (uintptr_t)modules[0];
+        ModuleInfo result;
+        if (Module32FirstW(handleModule, &moduleEntry)) {
+            do {
+                if (!wcscmp(moduleEntry.szModule, wideModule.c_str())) {
+                    result.base = (uintptr_t)moduleEntry.modBaseAddr;
+                    result.size = moduleEntry.dwSize;
+                    break;
+                }
+            } while (Module32NextW(handleModule, &moduleEntry));
+        }
 
-		GetModuleInformation(this->handle_, modules[0], &module_info, sizeof(module_info));
-		base_client_.size = module_info.SizeOfImage;
+        CloseHandle(handleModule);
+        return result;
+    }
 
-		hwnd_ = this->GetWindowHandleFromProcessId(pid_);
-
-		return true;
-	}
-	return false;
-}
-
-bool pProcess::UpdateHWND()
-{
-	hwnd_ = this->GetWindowHandleFromProcessId(pid_);
-	return hwnd_ == nullptr;
-}
-
-ProcessModule pProcess::GetModule(const char* lModule)
-{
-	std::wstring wideModule;
-	int wideCharLength = MultiByteToWideChar(CP_UTF8, 0, lModule, -1, nullptr, 0);
-	if (wideCharLength > 0)
-	{
-		wideModule.resize(wideCharLength);
-		MultiByteToWideChar(CP_UTF8, 0, lModule, -1, &wideModule[0], wideCharLength);
-	}
-
-	HANDLE handle_module = CreateToolhelp32Snapshot(TH32CS_SNAPMODULE, pid_);
-	MODULEENTRY32W module_entry_{};
-	module_entry_.dwSize = sizeof(MODULEENTRY32W);
-
-	do
-	{
-		if (!wcscmp(module_entry_.szModule, wideModule.c_str()))
-		{
-			CloseHandle(handle_module);
-			return { (DWORD_PTR)module_entry_.modBaseAddr, module_entry_.dwSize };
-		}
-	} while (Module32NextW(handle_module, &module_entry_));
-
-	CloseHandle(handle_module);
-	return { 0, 0 };
-}
-
-LPVOID pProcess::Allocate(size_t size_in_bytes)
-{
-	return VirtualAllocEx(this->handle_, NULL, size_in_bytes, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
-}
-
-uintptr_t pProcess::FindSignature(std::vector<uint8_t> signature)
-{
-	std::unique_ptr<uint8_t[]> data;
-	data = std::make_unique<uint8_t[]>(this->base_client_.size);
-
-	if (!ReadProcessMemory(this->handle_, (void*)(this->base_client_.base), data.get(), this->base_client_.size, NULL)) {
-		return 0x0;
-	}
-
-	for (uintptr_t i = 0; i < this->base_client_.size; i++)
-	{
-		for (uintptr_t j = 0; j < signature.size(); j++)
-		{
-			if (signature.at(j) == 0x00)
-				continue;
-
-			if (*reinterpret_cast<uint8_t*>(reinterpret_cast<uintptr_t>(&data[i + j])) == signature.at(j))
-			{
-				if (j == signature.size() - 1)
-					return this->base_client_.base + i;
-				continue;
-			}
-			break;
-		}
-	}
-	return 0x0;
-}
-
-uintptr_t pProcess::FindSignature(ProcessModule target_module, std::vector<uint8_t> signature)
-{
-	std::unique_ptr<uint8_t[]> data;
-	data = std::make_unique<uint8_t[]>(0xFFFFFFF);
-
-	if (!ReadProcessMemory(this->handle_, (void*)(target_module.base), data.get(), 0xFFFFFFF, NULL)) {
-		return NULL;
-	}
-
-	for (uintptr_t i = 0; i < 0xFFFFFFF; i++)
-	{
-		for (uintptr_t j = 0; j < signature.size(); j++)
-		{
-			if (signature.at(j) == 0x00)
-				continue;
-
-			if (*reinterpret_cast<uint8_t*>(reinterpret_cast<uintptr_t>(&data[i + j])) == signature.at(j))
-			{
-				if (j == signature.size() - 1)
-					return this->base_client_.base + i;
-				continue;
-			}
-			break;
-		}
-	}
-	return 0x0;
-}
-
-uintptr_t pProcess::FindCodeCave(uint32_t length_in_bytes)
-{
-	std::vector<uint8_t> cave_pattern = {};
-
-	for (uint32_t i = 0; i < length_in_bytes; i++) {
-		cave_pattern.push_back(0x00);
-	}
-
-	return FindSignature(cave_pattern);
-}
-
-void pProcess::Close()
-{
-	CloseHandle(handle_);
-}
+} // namespace geezy_digital
