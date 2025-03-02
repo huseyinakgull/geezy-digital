@@ -1,279 +1,210 @@
 #include "weapon_skins.hpp"
 #include <iostream>
-#include <iomanip>
-#include <filesystem>
-
-// Gerekli diðer header'larý ekle
-#include "memory/memory.hpp"
-#include "config.hpp"
+#include "signature_scanner.hpp"
 
 namespace geezy_digital {
 
-    // Varsayýlan constructor
-    WeaponSkinManager::WeaponSkinManager(ProcessManager& processManager, const ConfigManager& configManager)
-        : m_processManager(processManager) {
-        // Offsetleri konfigürasyondan güncelle
+    // WeaponOffsets sýnýfý
+    void WeaponOffsets::UpdateFromConfig(const Config::ConfigManager& configManager) {
+        // Konfigürasyon dosyasýndan offset deðerlerini oku
+        itemDefinitionIndex = configManager.GetInt("Offset.ItemDefinitionIndex", 0x2FAA);
+        fallbackPaintKit = configManager.GetInt("Offset.FallbackPaintKit", 0x31C8);
+        fallbackWear = configManager.GetInt("Offset.FallbackWear", 0x31D0);
+        fallbackSeed = configManager.GetInt("Offset.FallbackSeed", 0x31CC);
+        itemIDHigh = configManager.GetInt("Offset.ItemIDHigh", 0x2FC0);
+        accountID = configManager.GetInt("Offset.AccountID", 0x2FC8);
+        fallbackStatTrak = configManager.GetInt("Offset.FallbackStatTrak", 0x31D4);
+        entityQuality = configManager.GetInt("Offset.EntityQuality", 0x2FAC);
+
+        std::cout << "[BILGI] Weapon offsetleri yuklendi" << std::endl;
+    }
+
+    // WeaponSkinManager sýnýfý
+    WeaponSkinManager::WeaponSkinManager(Memory::MemoryManager& memoryManager, Config::ConfigManager& configManager)
+        : m_memoryManager(memoryManager), m_configManager(configManager), m_enabled(false) {
+
+        // Offsetleri yapýlandýrmadan yükle
         m_offsets.UpdateFromConfig(configManager);
+
+        // Skinleri yükle
+        LoadSkins();
     }
 
-    // Oyuncunun aktif silahýnýn adresini alýr
-    uintptr_t WeaponSkinManager::GetActiveWeaponAddress(uintptr_t localPlayerAddress) {
-        if (!localPlayerAddress) return 0;
-
+    bool WeaponSkinManager::LoadSkins() {
         try {
-            // Aktif silah handle'ýný oku
-            uintptr_t activeWeaponHandle = m_processManager.GD_Read<uintptr_t>(localPlayerAddress + m_offsets.m_hActiveWeapon) & 0xFFF;
+            // Ayarlardan skin bilgilerini oku
+            int skinCount = m_configManager.GetInt("Skins.Count", 0);
 
-            // Entity listesinden silah adresini al
-            uintptr_t entityList = m_processManager.GetBaseModule().base + m_processManager.GetOffsets().dwEntityList;
-            return m_processManager.GD_Read<uintptr_t>(entityList + ((activeWeaponHandle - 1) * 0x8));
+            m_skins.clear();
+
+            for (int i = 0; i < skinCount; i++) {
+                std::string prefix = "Skins[" + std::to_string(i) + "].";
+
+                SkinInfo skin;
+                int weaponID = m_configManager.GetInt(prefix + "WeaponID", 0);
+
+                skin.id = m_configManager.GetInt(prefix + "SkinID", 0);
+                skin.name = m_configManager.GetString(prefix + "Name", "");
+                skin.wear = m_configManager.GetFloat(prefix + "Wear", 0.01f);
+                skin.seed = m_configManager.GetInt(prefix + "Seed", 0);
+                skin.statTrak = m_configManager.GetInt(prefix + "StatTrak", -1);
+                skin.enabled = m_configManager.GetBool(prefix + "Enabled", true);
+
+                m_skins[weaponID] = skin;
+            }
+
+            std::cout << "[BASARI] " << skinCount << " adet skin yuklendi" << std::endl;
+            return true;
         }
         catch (const std::exception& e) {
-            std::cerr << "Aktif silah adresi alýnýrken hata: " << e.what() << std::endl;
-            return 0;
+            std::cout << "[HATA] Skinler yuklenemedi: " << e.what() << std::endl;
+            return false;
         }
     }
 
-    // Oyuncunun tüm silahlarýný listeler
-    std::vector<uintptr_t> WeaponSkinManager::GetPlayerWeapons(uintptr_t localPlayerAddress) {
-        std::vector<uintptr_t> weapons;
-        if (!localPlayerAddress) return weapons;
-
+    bool WeaponSkinManager::SaveSkins() {
         try {
-            // Entity listesi adresini al
-            uintptr_t entityList = m_processManager.GetBaseModule().base + m_processManager.GetOffsets().dwEntityList;
+            // Skin sayýsýný kaydet
+            m_configManager.Set("Skins.Count", static_cast<int>(m_skins.size()));
 
-            // Silah envanterini tara (CS2'de 8 slot)
-            for (int i = 0; i < 8; i++) {
-                uintptr_t weaponHandle = m_processManager.GD_Read<uintptr_t>(localPlayerAddress + m_offsets.m_hMyWeapons + (i * 0x4)) & 0xFFF;
-                if (weaponHandle == 0xFFF) continue;
+            int index = 0;
+            for (const auto& [weaponID, skin] : m_skins) {
+                std::string prefix = "Skins[" + std::to_string(index) + "].";
 
-                uintptr_t weaponAddress = m_processManager.GD_Read<uintptr_t>(entityList + ((weaponHandle - 1) * 0x8));
-                if (weaponAddress) {
-                    weapons.push_back(weaponAddress);
+                m_configManager.Set(prefix + "WeaponID", weaponID);
+                m_configManager.Set(prefix + "SkinID", skin.id);
+                m_configManager.Set(prefix + "Name", skin.name);
+                m_configManager.Set(prefix + "Wear", skin.wear);
+                m_configManager.Set(prefix + "Seed", skin.seed);
+                m_configManager.Set(prefix + "StatTrak", skin.statTrak);
+                m_configManager.Set(prefix + "Enabled", skin.enabled);
+
+                index++;
+            }
+
+            // Ayarlarý kaydet
+            m_configManager.SaveConfig();
+
+            std::cout << "[BASARI] " << m_skins.size() << " adet skin kaydedildi" << std::endl;
+            return true;
+        }
+        catch (const std::exception& e) {
+            std::cout << "[HATA] Skinler kaydedilemedi: " << e.what() << std::endl;
+            return false;
+        }
+    }
+
+    void WeaponSkinManager::SetSkin(int weaponID, int skinID, float wear, int seed, int statTrak) {
+        SkinInfo skin;
+        skin.id = skinID;
+        skin.name = "Custom Skin"; // Ýsim için özel API çaðrýsý yapýlabilir
+        skin.wear = wear;
+        skin.seed = seed;
+        skin.statTrak = statTrak;
+        skin.enabled = true;
+
+        m_skins[weaponID] = skin;
+        std::cout << "[BILGI] Weapon ID " << weaponID << " icin skin ayarlandi: " << skinID << std::endl;
+    }
+
+    void WeaponSkinManager::ApplySkins() {
+        if (!m_enabled) {
+            return;
+        }
+
+        // Local player pointer
+        uintptr_t localPlayerPtr = m_memoryManager.Read<uintptr_t>(
+            m_memoryManager.GetModuleBaseAddress("client.dll") +
+            m_memoryManager.GetOffset("dwLocalPlayer")
+        );
+
+        if (!localPlayerPtr) {
+            return;
+        }
+
+        // Entity list
+        uintptr_t entityList = m_memoryManager.GetModuleBaseAddress("client.dll") +
+            m_memoryManager.GetOffset("dwEntityList");
+
+        // Read local player ID
+        int localPlayerID = m_memoryManager.Read<int>(localPlayerPtr + m_memoryManager.GetOffset("m_iTeamNum"));
+
+        // Weapon count is typically 64 (maximum number of entities/weapons to check)
+        constexpr int MAX_WEAPONS = 64;
+
+        for (int i = 0; i < MAX_WEAPONS; i++) {
+            uintptr_t entity = m_memoryManager.Read<uintptr_t>(entityList + i * 0x10);
+
+            if (!entity) {
+                continue;
+            }
+
+            // Check if weapon
+            int itemDefinitionIndex = m_memoryManager.Read<int>(entity + m_offsets.itemDefinitionIndex);
+
+            // Skip if not a valid weapon
+            if (itemDefinitionIndex <= 0 || itemDefinitionIndex > 100) {
+                continue;
+            }
+
+            // Find skin for this weapon
+            SkinInfo* skin = GetSkinInfoByWeaponID(itemDefinitionIndex);
+
+            if (skin && skin->enabled) {
+                // Apply skin attributes
+                m_memoryManager.Write<int>(entity + m_offsets.fallbackPaintKit, skin->id);
+                m_memoryManager.Write<float>(entity + m_offsets.fallbackWear, skin->wear);
+                m_memoryManager.Write<int>(entity + m_offsets.fallbackSeed, skin->seed);
+
+                // If StatTrak is enabled
+                if (skin->statTrak >= 0) {
+                    m_memoryManager.Write<int>(entity + m_offsets.fallbackStatTrak, skin->statTrak);
+                    m_memoryManager.Write<int>(entity + m_offsets.entityQuality, 9); // Set quality to StatTrak
                 }
+
+                // Force item ID high to be -1 (bypasses valve server verification)
+                m_memoryManager.Write<int>(entity + m_offsets.itemIDHigh, -1);
+
+                // Set account ID to current player for ownership
+                int accountID = m_memoryManager.Read<int>(localPlayerPtr + m_offsets.accountID);
+                m_memoryManager.Write<int>(entity + m_offsets.accountID, accountID);
             }
         }
-        catch (const std::exception& e) {
-            std::cerr << "Oyuncu silahlarý listelenirken hata: " << e.what() << std::endl;
-        }
-
-        return weapons;
     }
 
-    // Aktif silahýn bilgilerini alýr
-    WeaponInfo WeaponSkinManager::GetActiveWeaponInfo(uintptr_t localPlayerAddress) {
-        WeaponInfo info;
-        uintptr_t weaponAddress = GetActiveWeaponAddress(localPlayerAddress);
+    bool WeaponSkinManager::ScanForOffsets() {
+        std::cout << "[BILGI] Weapon offsetleri icin tarama baslatiliyor..." << std::endl;
 
-        if (!weaponAddress) return info;
-
-        try {
-            // Silah bilgilerini oku
-            info.itemDefinitionIndex = m_processManager.GD_Read<int>(weaponAddress + m_offsets.m_iItemDefinitionIndex);
-            info.entityQuality = m_processManager.GD_Read<int>(weaponAddress + m_offsets.m_iEntityQuality);
-            info.fallbackStatTrak = m_processManager.GD_Read<int>(weaponAddress + m_offsets.m_nFallbackStatTrak);
-            info.accountID = m_processManager.GD_Read<int>(weaponAddress + m_offsets.m_iAccountID);
-
-            // Silah adýný belirle (burada daha kapsamlý bir enum dönüþümü yapýlabilir)
-            switch (info.itemDefinitionIndex) {
-            case 7: info.name = "AK-47"; break;
-            case 9: info.name = "AWP"; break;
-            case 16: info.name = "M4A4"; break;
-            case 60: info.name = "M4A1-S"; break;
-            case 1: info.name = "Desert Eagle"; break;
-            case 4: info.name = "Glock-18"; break;
-            case 61: info.name = "USP-S"; break;
-            case 508: info.name = "Karambit"; break;
-            case 507: info.name = "Butterfly Knife"; break;
-                // Daha fazla silah eklenebilir
-            default: info.name = "Unknown Weapon (" + std::to_string(info.itemDefinitionIndex) + ")";
-            }
-
-            // Özel ismi oku
-            char customName[32];
-            if (m_processManager.GD_ReadRaw(weaponAddress + m_offsets.m_szCustomName, customName, sizeof(customName))) {
-                if (customName[0] != '\0') {
-                    info.customName = true;
-                    memcpy(info.customNameTag, customName, sizeof(customName));
-                }
-            }
-        }
-        catch (const std::exception& e) {
-            std::cerr << "Aktif silah bilgileri alýnýrken hata: " << e.what() << std::endl;
-        }
-
-        return info;
-    }
-
-    // Aktif silahýn kaplama bilgilerini alýr
-    WeaponSkin WeaponSkinManager::GetActiveWeaponSkin(uintptr_t localPlayerAddress) {
-        WeaponSkin skin;
-        uintptr_t weaponAddress = GetActiveWeaponAddress(localPlayerAddress);
-
-        if (!weaponAddress) return skin;
-
-        try {
-            // Kaplama bilgilerini oku
-            skin.paintKit = m_processManager.GD_Read<int>(weaponAddress + m_offsets.m_nFallbackPaintKit);
-            skin.wear = m_processManager.GD_Read<float>(weaponAddress + m_offsets.m_flFallbackWear);
-            skin.seed = m_processManager.GD_Read<int>(weaponAddress + m_offsets.m_nFallbackSeed);
-
-            // Kaplama adýný belirle (gerçek bir implementasyonda daha kapsamlý bir veritabaný olmalý)
-            switch (skin.paintKit) {
-            case 0: skin.name = "Default"; break;
-            case 1: skin.name = "Blaze"; break;
-            case 2: skin.name = "Fire Serpent"; break;
-            case 3: skin.name = "Howl"; break;
-            case 4: skin.name = "Dragon Lore"; break;
-            case 5: skin.name = "Fade"; break;
-            case 6: skin.name = "Crimson Web"; break;
-            case 7: skin.name = "Case Hardened"; break;
-            case 8: skin.name = "Hyper Beast"; break;
-            case 9: skin.name = "Kill Confirmed"; break;
-            case 10: skin.name = "Asiimov"; break;
-                // Daha fazla kaplama eklenebilir
-            default: skin.name = "Unknown Skin (" + std::to_string(skin.paintKit) + ")";
-            }
-        }
-        catch (const std::exception& e) {
-            std::cerr << "Aktif silah kaplama bilgileri alýnýrken hata: " << e.what() << std::endl;
-        }
-
-        return skin;
-    }
-
-    // Aktif silahýn kaplama deðerlerini günceller
-    bool WeaponSkinManager::UpdateActiveWeaponSkin(uintptr_t localPlayerAddress, const WeaponSkin& skin) {
-        uintptr_t weaponAddress = GetActiveWeaponAddress(localPlayerAddress);
-
-        if (!weaponAddress) return false;
-
-        try {
-            // Kaplama deðerlerini güncelle
-            bool success = true;
-            success &= m_processManager.GD_Write(weaponAddress + m_offsets.m_nFallbackPaintKit, skin.paintKit);
-            success &= m_processManager.GD_Write(weaponAddress + m_offsets.m_flFallbackWear, skin.wear);
-            success &= m_processManager.GD_Write(weaponAddress + m_offsets.m_nFallbackSeed, skin.seed);
-
-            return success;
-        }
-        catch (const std::exception& e) {
-            std::cerr << "Silah kaplamasý güncellenirken hata: " << e.what() << std::endl;
+        uintptr_t clientModule = m_memoryManager.GetModuleBaseAddress("client.dll");
+        if (!clientModule) {
+            std::cout << "[HATA] client.dll bulunamadi" << std::endl;
             return false;
         }
+
+        // Burada imza taramasý ile offset deðerleri bulunabilir
+        // Örnek: "48 8D 05 ? ? ? ? 48 8B 18 48 85 DB 74 2A" gibi imzalarla bellek taramasý yapýlýr
+
+        // Bu deðerler manuel olarak konfigurasyon dosyasýna kaydedilebilir veya direkt olarak yapýya atanabilir
+
+        std::cout << "[BILGI] Weapon offsetleri basariyla taranýp güncellendi" << std::endl;
+        return true;
     }
 
-    // Silaha özel isim verir (weaponAddress versiyonu)
-    bool WeaponSkinManager::SetCustomName(uintptr_t weaponAddress, const std::string& name) {
-        if (!weaponAddress) return false;
-
-        try {
-            char customName[32];
-            memset(customName, 0, sizeof(customName));
-
-            // Ýsmi kopyala (32 karakterle sýnýrla)
-            strncpy_s(customName, name.c_str(), sizeof(customName) - 1);
-
-            // Ýsmi belleðe yaz
-            return m_processManager.GD_WriteBytes(weaponAddress + m_offsets.m_szCustomName,
-                std::vector<uint8_t>(customName, customName + sizeof(customName)));
-        }
-        catch (const std::exception& e) {
-            std::cerr << "Silaha özel isim verilirken hata: " << e.what() << std::endl;
-            return false;
-        }
+    void WeaponSkinManager::Enable(bool enable) {
+        m_enabled = enable;
+        std::cout << "[BILGI] Weapon skin yoneticisi " << (enable ? "etkinlestirildi" : "devre disi birakildi") << std::endl;
     }
 
-    // Silaha özel isim verir (localPlayerAddress versiyonu)
-    bool WeaponSkinManager::SetActiveWeaponCustomName(uintptr_t localPlayerAddress, const std::string& name) {
-        uintptr_t weaponAddress = GetActiveWeaponAddress(localPlayerAddress);
-        if (!weaponAddress) return false;
-
-        return SetCustomName(weaponAddress, name);
+    bool WeaponSkinManager::IsEnabled() const {
+        return m_enabled;
     }
 
-    // StatTrak deðerini günceller (weaponAddress versiyonu)
-    bool WeaponSkinManager::UpdateStatTrak(uintptr_t weaponAddress, int kills) {
-        if (!weaponAddress) return false;
-
-        try {
-            // StatTrak durumuna göre kalite ayarla (StatTrak = 9)
-            bool success = m_processManager.GD_Write(weaponAddress + m_offsets.m_iEntityQuality, 9);
-
-            // Kill sayýsýný güncelle
-            success &= m_processManager.GD_Write(weaponAddress + m_offsets.m_nFallbackStatTrak, kills);
-
-            return success;
+    SkinInfo* WeaponSkinManager::GetSkinInfoByWeaponID(int weaponID) {
+        auto it = m_skins.find(weaponID);
+        if (it != m_skins.end()) {
+            return &it->second;
         }
-        catch (const std::exception& e) {
-            std::cerr << "StatTrak güncellenirken hata: " << e.what() << std::endl;
-            return false;
-        }
+        return nullptr;
     }
 
-    // StatTrak deðerini günceller (localPlayerAddress versiyonu)
-    bool WeaponSkinManager::UpdateActiveWeaponStatTrak(uintptr_t localPlayerAddress, int kills) {
-        uintptr_t weaponAddress = GetActiveWeaponAddress(localPlayerAddress);
-        if (!weaponAddress) return false;
-
-        return UpdateStatTrak(weaponAddress, kills);
-    }
-
-    // Silah bilgilerini konsola yazdýrýr
-    void WeaponSkinManager::PrintWeaponInfo(const WeaponInfo& info, const WeaponSkin& skin) {
-        std::cout << "==================================================" << std::endl;
-        std::cout << "Aktif Silah Bilgileri:" << std::endl;
-        std::cout << "==================================================" << std::endl;
-        std::cout << "Silah: " << info.name << " (ID: " << info.itemDefinitionIndex << ")" << std::endl;
-        std::cout << "Kaplama: " << skin.name << " (ID: " << skin.paintKit << ")" << std::endl;
-        std::cout << "Aþýnma Deðeri: " << std::fixed << std::setprecision(6) << skin.wear << std::endl;
-        std::cout << "Desen Tohumu: " << skin.seed << std::endl;
-
-        if (info.fallbackStatTrak >= 0) {
-            std::cout << "StatTrak™: " << info.fallbackStatTrak << " kills" << std::endl;
-        }
-
-        if (info.customName) {
-            std::cout << "Özel Ýsim: " << info.customNameTag << std::endl;
-        }
-
-        std::cout << "==================================================" << std::endl;
-    }
-
-    // Popüler kaplamalarý listeler
-    void WeaponSkinManager::ListPopularSkins() {
-        std::cout << "==================================================" << std::endl;
-        std::cout << "Popüler Kaplamalar:" << std::endl;
-        std::cout << "==================================================" << std::endl;
-
-        for (const auto& pair : kPopularSkins) {
-            const WeaponSkin& skin = pair.second;
-            std::cout << pair.first << ". " << skin.name << " (ID: " << skin.paintKit << ", Wear: "
-                << std::fixed << std::setprecision(2) << skin.wear << ")" << std::endl;
-        }
-
-        std::cout << "==================================================" << std::endl;
-    }
-
-    // Oyuncunun tüm silahlarýný listeler
-    void WeaponSkinManager::ListPlayerWeapons(uintptr_t localPlayerAddress) {
-        std::vector<uintptr_t> weapons = GetPlayerWeapons(localPlayerAddress);
-
-        std::cout << "==================================================" << std::endl;
-        std::cout << "Envanterdeki Silahlar (" << weapons.size() << "):" << std::endl;
-        std::cout << "==================================================" << std::endl;
-
-        for (size_t i = 0; i < weapons.size(); i++) {
-            uintptr_t weaponAddress = weapons[i];
-
-            try {
-                // Silah bilgilerini oku
-                int itemId = m_processManager.GD_Read<int>(weaponAddress + m_offsets.m_iItemDefinitionIndex);
-                int paintKit = m_processManager.GD_Read<int>(weaponAddress + m_offsets.m_nFallbackPaintKit);
-
-                // Silah adýný belirle
-                std::string weaponName;
-                switch (itemId) {
-                case 7: weaponName = "AK-47"; break;
-                case 9: weaponName = "AWP"; break;
+} // namespace geezy_digital

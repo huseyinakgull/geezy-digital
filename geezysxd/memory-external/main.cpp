@@ -1,263 +1,264 @@
 #include <iostream>
+#include <string>
 #include <thread>
 #include <chrono>
-#include <windows.h>
-#include <conio.h>
-#include "memory/memory.hpp"
-#include "memory/handle_hijack.hpp"
+#include <Windows.h>
+#include <Psapi.h>
+#include "../memory-external/memory/memory.hpp"
+#include "signature_scanner.hpp"
+#include "offset_manager.hpp"
 #include "config.hpp"
-#include "weapon_skins.hpp" // Yeni eklenen header
+#include "weapon_skins.hpp"
 
-// Yardým menüsünü göster
-void ShowHelp() {
-    std::cout << "==================================================" << std::endl;
-    std::cout << "           Geezy Digital CS2 Skin Changer         " << std::endl;
-    std::cout << "==================================================" << std::endl;
-    std::cout << "Komutlar:" << std::endl;
-    std::cout << " 'I' - Aktif silah bilgilerini göster" << std::endl;
-    std::cout << " 'L' - Popüler kaplamalarý listele" << std::endl;
-    std::cout << " 'W' - Envanterdeki silahlarý listele" << std::endl;
-    std::cout << " 'C' - Aktif silah kaplamasýný deðiþtir" << std::endl;
-    std::cout << " 'S' - StatTrak deðerini deðiþtir" << std::endl;
-    std::cout << " 'N' - Özel isim ayarla" << std::endl;
-    std::cout << " 'R' - Aþýnma deðerini deðiþtir (0.0-1.0)" << std::endl;
-    std::cout << " 'D' - Desen tohumu deðiþtir" << std::endl;
-    std::cout << " 'H' - Bu yardým menüsünü göster" << std::endl;
-    std::cout << " 'Q' - Programdan çýk" << std::endl;
-    std::cout << "==================================================" << std::endl;
+#pragma comment(lib, "Psapi.lib")
+
+// Game-specific constants
+constexpr const char* GAME_PROCESS = "cs2.exe";
+constexpr const char* GAME_CLIENT_MODULE = "client.dll";
+constexpr const char* OFFSETS_FILE = "offsets.json";
+constexpr const char* CONFIG_FILE = "config.json";
+
+// Forward declarations
+void MenuSkinManager(Memory::MemoryManager& memManager, Config::ConfigManager& configManager);
+
+void DisplayMenu() {
+    std::cout << "\n=== CS2 Bellek Analiz Araci ===\n";
+    std::cout << "1. Oyuna baglan\n";
+    std::cout << "2. Imza taramasi yap\n";
+    std::cout << "3. Offsetleri guncelle\n";
+    std::cout << "4. Bellek analizi baslat\n";
+    std::cout << "5. Skin yoneticisi\n";
+    std::cout << "6. Cikis\n";
+    std::cout << "Seciminiz: ";
 }
 
 int main() {
-    std::cout << "==================================================" << std::endl;
-    std::cout << "               Geezy Digital CS2 Tool             " << std::endl;
-    std::cout << "==================================================" << std::endl;
+    // Initialize components
+    Memory::MemoryManager memoryManager(GAME_PROCESS);
+    Offsets::OffsetManager offsetManager(OFFSETS_FILE);
+    Config::ConfigManager configManager(CONFIG_FILE);
 
-    // Yapýlandýrma yöneticisi oluþtur
-    geezy_digital::ConfigManager configManager;
+    std::cout << "=== CS2 Bellek Analiz Araci ===\n";
+    std::cout << "Bug Bounty programi icin gelistirilmistir\n";
+    std::cout << "Etik amaclar icin kullaniniz!\n\n";
 
-    // Process Manager örneði oluþtur
-    geezy_digital::ProcessManager processManager;
-
-    // CS2'ye Handle Hijacking ile baðlan (anti-cheat tespitini önlemek için)
-    std::cout << "[geezy_digital] CS2'ye baðlanýlýyor..." << std::endl;
-    if (!processManager.GD_AttachToProcessWithHijacking("cs2.exe")) {
-        std::cout << "[geezy_digital] Hata: CS2'ye baðlanýlamadý! Oyunun çalýþtýðýndan emin olun." << std::endl;
-        std::cout << "Çýkmak için Enter tuþuna basýn..." << std::endl;
-        std::cin.get();
-        return -1;
+    // Check for config
+    if (!configManager.LoadConfig()) {
+        std::cout << "[BILGI] Konfigurasyon dosyasi olusturuldu." << std::endl;
+        configManager.SaveConfig();
     }
 
-    std::cout << "[geezy_digital] CS2'ye baþarýyla baðlandý!" << std::endl;
-    std::cout << "[geezy_digital] Process ID: " << processManager.GetProcessId() << std::endl;
-    std::cout << "[geezy_digital] Taban Modül Adresi: 0x" << std::hex << processManager.GetBaseModule().base << std::dec << std::endl;
-    std::cout << "==================================================" << std::endl;
-    std::cout << "[geezy_digital] Bellek manipülasyonu baþlatýldý..." << std::endl;
+    // Attempt to load offsets
+    if (!offsetManager.LoadOffsets()) {
+        std::cout << "[BILGI] Offsetler yuklenemedi, guncel offsetleri almak icin secim 3'u secin.\n";
+    }
 
-    // Yapýlandýrma deðerlerini al
-    auto& appConfig = configManager.GetAppConfig();
-    auto& keyBindings = configManager.GetKeyBindings();
-    auto& offsets = configManager.GetOffsets();
+    bool running = true;
+    bool gameConnected = false;
+    uintptr_t clientModuleBase = 0;
 
-    // Silah kaplama yöneticisi oluþtur
-    geezy_digital::WeaponSkinManager skinManager(processManager, configManager);
+    while (running) {
+        DisplayMenu();
 
-    // Kontrol deðerlerini oluþtur
+        int choice;
+        std::cin >> choice;
+
+        switch (choice) {
+        case 1: // Connect to game
+            if (memoryManager.AttachToProcess()) {
+                clientModuleBase = memoryManager.GetModuleBaseAddress(GAME_CLIENT_MODULE);
+                if (clientModuleBase != 0) {
+                    std::cout << "[BASARI] " << GAME_CLIENT_MODULE << " modulu bulundu: 0x"
+                        << std::hex << clientModuleBase << std::dec << std::endl;
+                    gameConnected = true;
+                }
+                else {
+                    std::cout << "[HATA] " << GAME_CLIENT_MODULE << " modulu bulunamadi.\n";
+                }
+            }
+            break;
+
+        case 2: // Run signature scan
+            if (!gameConnected) {
+                std::cout << "[HATA] Once oyuna baglanmalisiniz (secim 1).\n";
+                break;
+            }
+
+            {
+                // Get module info for scanning
+                MODULEINFO moduleInfo = { 0 };
+                HMODULE hModule = reinterpret_cast<HMODULE>(clientModuleBase);
+                if (GetModuleInformation(memoryManager.GetProcessHandle(), hModule, &moduleInfo, sizeof(moduleInfo))) {
+                    // Create signature scanner with memory manager
+                    Scanner::SignatureScanner scanner(memoryManager, clientModuleBase, moduleInfo.SizeOfImage);
+
+                    // Run the scan
+                    auto results = scanner.ScanForAllSignatures();
+
+                    // Display and update offsets
+                    for (const auto& [name, address] : results) {
+                        if (address != 0) {
+                            offsetManager.SetOffset(name, address - clientModuleBase); // Store as offset from base
+                        }
+                    }
+
+                    offsetManager.SaveOffsets();
+                }
+                else {
+                    std::cout << "[HATA] Modul bilgisi alinamadi.\n";
+                }
+            }
+            break;
+
+        case 3: // Update offsets
+            if (offsetManager.UpdateOffsetsFromRepository("https://github.com/a2x/cs2-dumper")) {
+                // Reload the offsets after update
+                offsetManager.LoadOffsets();
+            }
+            break;
+
+        case 4: // Start memory analysis
+            if (!gameConnected) {
+                std::cout << "[HATA] Once oyuna baglanmalisiniz (secim 1).\n";
+                break;
+            }
+
+            if (!offsetManager.IsBuildCurrent(0)) { // 0 is a placeholder, would need actual build checking
+                std::cout << "[UYARI] Offsetler guncel olmayabilir. Devam etmek istiyor musunuz? (E/H): ";
+                char confirm;
+                std::cin >> confirm;
+                if (confirm != 'E' && confirm != 'e') {
+                    break;
+                }
+            }
+
+            std::cout << "[BILGI] Bellek analizi baslatiliyor...\n";
+
+            {
+                bool analyzing = true;
+
+                // Example: Get EntityList and LocalPlayer offsets
+                uintptr_t entityListOffset = offsetManager.GetOffset("dwEntityList");
+                uintptr_t localPlayerOffset = offsetManager.GetOffset("dwLocalPlayer");
+
+                if (entityListOffset == 0 || localPlayerOffset == 0) {
+                    std::cout << "[HATA] Gerekli offsetler eksik. Lutfen imza taramasi yapin (secim 2).\n";
+                    break;
+                }
+
+                // Example memory analysis loop
+                while (analyzing) {
+                    // Calculate absolute addresses
+                    uintptr_t entityListAddr = clientModuleBase + entityListOffset;
+                    uintptr_t localPlayerAddr = clientModuleBase + localPlayerOffset;
+
+                    // Read local player pointer
+                    uintptr_t localPlayer = memoryManager.Read<uintptr_t>(localPlayerAddr);
+
+                    if (localPlayer != 0) {
+                        // Read player health as an example
+                        int health = memoryManager.Read<int>(localPlayer + offsetManager.GetOffset("m_iHealth"));
+                        std::cout << "[BILGI] Oyuncu can: " << health << std::endl;
+                    }
+
+                    // Wait before next check
+                    std::this_thread::sleep_for(std::chrono::milliseconds(500));
+
+                    // Check for exit condition (could be improved with proper input handling)
+                    std::cout << "Analizi durdurmak icin 'q' tusuna basin: ";
+                    char input;
+                    if (std::cin.peek() == 'q') {
+                        analyzing = false;
+                    }
+                }
+            }
+            break;
+
+        case 5: // Skin manager
+            if (!gameConnected) {
+                std::cout << "[HATA] Once oyuna baglanmalisiniz (secim 1).\n";
+                break;
+            }
+            MenuSkinManager(memoryManager, configManager);
+            break;
+
+        case 6: // Exit
+            running = false;
+            break;
+
+        default:
+            std::cout << "[HATA] Gecersiz secim.\n";
+            break;
+        }
+    }
+
+    std::cout << "[BILGI] Program sonlandiriliyor...\n";
+    return 0;
+}
+
+// Skin Manager Menu implementation
+void MenuSkinManager(Memory::MemoryManager& memManager, Config::ConfigManager& configManager) {
+    // Create weapon skin manager
+    geezy_digital::WeaponSkinManager skinManager(memManager, configManager);
+
     bool running = true;
 
-    // Komut modu için ekstra deðiþkenler
-    bool commandMode = false;
-
-    // Yardým menüsünü göster
-    ShowHelp();
-
-    // Ana döngü
     while (running) {
-        // Tuþ kontrollerini yap
-        if (GetAsyncKeyState(keyBindings.exitKey) & 1) { // END tuþuna basýldýðýnda
+        std::cout << "\n=== Skin Yoneticisi ===\n";
+        std::cout << "1. Skinleri yukle\n";
+        std::cout << "2. Skin ekle/guncelle\n";
+        std::cout << "3. Skinleri uygula\n";
+        std::cout << "4. Skin yoneticisini " << (skinManager.IsEnabled() ? "devre disi birak" : "etkinlestir") << "\n";
+        std::cout << "5. Geri\n";
+        std::cout << "Seciminiz: ";
+
+        int choice;
+        std::cin >> choice;
+
+        switch (choice) {
+        case 1: // Load skins
+            skinManager.LoadSkins();
+            break;
+
+        case 2: { // Add/update skin
+            int weaponID, skinID, seed, statTrak;
+            float wear;
+
+            std::cout << "Weapon ID: ";
+            std::cin >> weaponID;
+
+            std::cout << "Skin ID: ";
+            std::cin >> skinID;
+
+            std::cout << "Wear (0.0-1.0): ";
+            std::cin >> wear;
+
+            std::cout << "Seed: ";
+            std::cin >> seed;
+
+            std::cout << "StatTrak (-1 for disabled): ";
+            std::cin >> statTrak;
+
+            skinManager.SetSkin(weaponID, skinID, wear, seed, statTrak);
+            skinManager.SaveSkins();
+            break;
+        }
+
+        case 3: // Apply skins
+            skinManager.ApplySkins();
+            break;
+
+        case 4: // Toggle
+            skinManager.Enable(!skinManager.IsEnabled());
+            break;
+
+        case 5: // Back
             running = false;
-            std::cout << "[geezy_digital] Program sonlandýrýlýyor..." << std::endl;
+            break;
+
+        default:
+            std::cout << "[HATA] Gecersiz secim.\n";
+            break;
         }
-
-        if (GetAsyncKeyState(keyBindings.toggleMenuKey) & 1) { // INSERT tuþuna basýldýðýnda
-            commandMode = !commandMode;
-            if (commandMode) {
-                std::cout << "[geezy_digital] Komut modu aktif. Komut girin (H: Yardým): ";
-
-                // Komut girdisi için _getch() kullan
-                char cmd = _getch();
-                std::cout << cmd << std::endl;
-
-                // Yerel oyuncu adresini al
-                uintptr_t localPlayerAddress = processManager.GetBaseModule().base + offsets.dwLocalPlayer;
-
-                // Komutu iþle
-                switch (toupper(cmd)) {
-                case 'H': // Yardým
-                    ShowHelp();
-                    break;
-
-                case 'I': // Bilgi
-                {
-                    auto info = skinManager.GetActiveWeaponInfo(localPlayerAddress);
-                    auto skin = skinManager.GetActiveWeaponSkin(localPlayerAddress);
-                    skinManager.PrintWeaponInfo(info, skin);
-                }
-                break;
-
-                case 'L': // Kaplamalarý listele
-                    skinManager.ListPopularSkins();
-                    break;
-
-                case 'W': // Silahlarý listele
-                    skinManager.ListPlayerWeapons(localPlayerAddress);
-                    break;
-
-                case 'C': // Kaplama deðiþtir
-                {
-                    skinManager.ListPopularSkins();
-                    std::cout << "Yeni kaplama ID'sini girin: ";
-                    int paintKit;
-                    std::cin >> paintKit;
-
-                    geezy_digital::WeaponSkin newSkin;
-                    newSkin.paintKit = paintKit;
-
-                    // Popüler listeden bul
-                    auto it = geezy_digital::kPopularSkins.find(paintKit);
-                    if (it != geezy_digital::kPopularSkins.end()) {
-                        newSkin = it->second;
-                    }
-                    else {
-                        // Varsayýlan deðerleri kullan
-                        newSkin.wear = 0.01f;
-                        newSkin.seed = 1;
-                    }
-
-                    if (skinManager.UpdateActiveWeaponSkin(localPlayerAddress, newSkin)) {
-                        std::cout << "Kaplama baþarýyla deðiþtirildi!" << std::endl;
-                    }
-                    else {
-                        std::cout << "Kaplama deðiþtirilemedi. Silah aktif edildi mi?" << std::endl;
-                    }
-                }
-                break;
-
-                case 'S': // StatTrak deðiþtir
-                {
-                    std::cout << "Yeni StatTrak deðerini girin: ";
-                    int kills;
-                    std::cin >> kills;
-
-                    // Yeni eklediðimiz UpdateActiveWeaponStatTrak metodunu kullanýyoruz
-                    if (skinManager.UpdateActiveWeaponStatTrak(localPlayerAddress, kills)) {
-                        std::cout << "StatTrak deðeri baþarýyla güncellendi!" << std::endl;
-                    }
-                    else {
-                        std::cout << "StatTrak deðeri güncellenemedi. Aktif silah bulunamadý." << std::endl;
-                    }
-                }
-                break;
-
-                case 'N': // Özel isim ayarla
-                {
-                    std::cout << "Yeni isim girin (max 32 karakter): ";
-                    std::string name;
-                    std::cin.ignore();
-                    std::getline(std::cin, name);
-
-                    // Yeni eklediðimiz SetActiveWeaponCustomName metodunu kullanýyoruz
-                    if (skinManager.SetActiveWeaponCustomName(localPlayerAddress, name)) {
-                        std::cout << "Özel isim baþarýyla ayarlandý!" << std::endl;
-                    }
-                    else {
-                        std::cout << "Özel isim ayarlanamadý. Aktif silah bulunamadý." << std::endl;
-                    }
-                }
-                break;
-
-                case 'R': // Aþýnma deðeri deðiþtir
-                {
-                    auto info = skinManager.GetActiveWeaponInfo(localPlayerAddress);
-                    auto skin = skinManager.GetActiveWeaponSkin(localPlayerAddress);
-
-                    std::cout << "Mevcut aþýnma deðeri: " << skin.wear << std::endl;
-                    std::cout << "Yeni aþýnma deðerini girin (0.0-1.0): ";
-                    float wear;
-                    std::cin >> wear;
-
-                    // Deðeri sýnýrla
-                    if (wear < 0.0f) wear = 0.0f;
-                    if (wear > 1.0f) wear = 1.0f;
-
-                    skin.wear = wear;
-
-                    if (skinManager.UpdateActiveWeaponSkin(localPlayerAddress, skin)) {
-                        std::cout << "Aþýnma deðeri baþarýyla deðiþtirildi!" << std::endl;
-                    }
-                    else {
-                        std::cout << "Aþýnma deðeri deðiþtirilemedi." << std::endl;
-                    }
-                }
-                break;
-
-                case 'D': // Desen tohumu deðiþtir
-                {
-                    auto info = skinManager.GetActiveWeaponInfo(localPlayerAddress);
-                    auto skin = skinManager.GetActiveWeaponSkin(localPlayerAddress);
-
-                    std::cout << "Mevcut desen tohumu: " << skin.seed << std::endl;
-                    std::cout << "Yeni desen tohumu girin: ";
-                    int seed;
-                    std::cin >> seed;
-
-                    skin.seed = seed;
-
-                    if (skinManager.UpdateActiveWeaponSkin(localPlayerAddress, skin)) {
-                        std::cout << "Desen tohumu baþarýyla deðiþtirildi!" << std::endl;
-                    }
-                    else {
-                        std::cout << "Desen tohumu deðiþtirilemedi." << std::endl;
-                    }
-                }
-                break;
-
-                case 'Q': // Çýkýþ
-                    running = false;
-                    std::cout << "[geezy_digital] Program sonlandýrýlýyor..." << std::endl;
-                    break;
-
-                default:
-                    std::cout << "Geçersiz komut. Yardým için 'H' tuþuna basýn." << std::endl;
-                    break;
-                }
-
-                commandMode = false;
-            }
-        }
-
-        // Debug bilgileri göster
-        if (appConfig.showDebugInfo && GetAsyncKeyState(VK_F1) & 1) {
-            // Yerel oyuncu adresini al
-            uintptr_t localPlayerAddress = processManager.GetBaseModule().base + offsets.dwLocalPlayer;
-
-            // Aktif silah bilgilerini göster
-            auto info = skinManager.GetActiveWeaponInfo(localPlayerAddress);
-            auto skin = skinManager.GetActiveWeaponSkin(localPlayerAddress);
-            skinManager.PrintWeaponInfo(info, skin);
-
-            Sleep(150); // Tuþ çakýþmasýný önlemek için
-        }
-
-        // CPU kullanýmýný azaltmak için kýsa bir bekleme
-        std::this_thread::sleep_for(std::chrono::milliseconds(5));
     }
-
-    // Programdan çýkmadan önce yapýlandýrmayý kaydet
-    configManager.GD_SaveConfig();
-
-    // Kaynaklarý temizle
-    processManager.GD_CloseProcess();
-
-    std::cout << "[geezy_digital] Program sonlandýrýldý." << std::endl;
-    return 0;
 }
