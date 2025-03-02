@@ -106,6 +106,7 @@ namespace geezy_digital {
             GD_LoadConfig();
             std::cout << "[geezy_digital] Offsetler hazýr, build numarasý: " << m_offsets.build_number << std::endl;
         }
+        const GD_Offsets& GetOffsets() const { return m_offsets; }
 
         // Yapýlandýrmayý dosyadan yükle
         bool GD_LoadConfig(const std::string& filePath = "") {
