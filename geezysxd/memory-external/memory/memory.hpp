@@ -115,10 +115,6 @@ namespace geezy_digital {
         // Ýþlem modülünü isimle alýr
         ModuleInfo GD_GetModuleByName(const char* moduleName);
 
-        bool GD_ReadRaw(uintptr_t address, void* buffer, size_t size) {
-            return m_memoryAccess.GD_ReadRaw(m_processHandle, address, buffer, size);
-        }
-
         // Ýþlem için bellek ayýrýr
         LPVOID GD_AllocateMemory(size_t sizeInBytes) {
             return VirtualAllocEx(m_processHandle, NULL, sizeInBytes, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
