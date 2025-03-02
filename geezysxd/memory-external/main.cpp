@@ -35,30 +35,18 @@ int main() {
     }
 
     std::cout << "[geezy_digital] CS2'ye baþarýyla baðlandý!" << std::endl;
-    std::cout << "Process ID: " << processManager.GetProcessId() << std::endl;
-    std::cout << "Taban Modül Adresi: 0x" << std::hex << processManager.GetBaseModule().base << std::dec << std::endl;
+    std::cout << "[geezy_digital] Process ID: " << processManager.GetProcessId() << std::endl;
+    std::cout << "[geezy_digital] Taban Modül Adresi: 0x" << std::hex << processManager.GetBaseModule().base << std::dec << std::endl;
+    std::cout << "==================================================" << std::endl;
+    std::cout << "[geezy_digital] Bellek manipülasyonu baþlatýldý..." << std::endl;
 
     // Yapýlandýrma deðerlerini al
     auto& espConfig = configManager.GetESPConfig();
     auto& keyBindings = configManager.GetKeyBindings();
     auto& offsets = configManager.GetOffsets();
 
-    std::cout << "[geezy_digital] ESP Durumu: " << (espConfig.enabled ? "Açýk" : "Kapalý") << std::endl;
-    std::cout << "[geezy_digital] ESP Tuþu: " << keyBindings.toggleEspKey << " (F1 = 112)" << std::endl;
-    std::cout << "[geezy_digital] Menü Tuþu: " << keyBindings.toggleMenuKey << " (INSERT = 45)" << std::endl;
-    std::cout << "[geezy_digital] Çýkýþ Tuþu: " << keyBindings.exitKey << " (END = 35)" << std::endl;
-
     // Kontrol deðerlerini oluþtur
     bool running = true;
-    bool showMenu = false;
-
-    // Basit bir konsol menüsü
-    std::cout << "==================================================" << std::endl;
-    std::cout << "           Kullanýlabilir Komutlar:               " << std::endl;
-    std::cout << "  [F1] - ESP'yi Aç/Kapat                          " << std::endl;
-    std::cout << "  [INSERT] - Menüyü Göster/Gizle                  " << std::endl;
-    std::cout << "  [END] - Programdan Çýk                          " << std::endl;
-    std::cout << "==================================================" << std::endl;
 
     // Ana döngü
     while (running) {
@@ -69,12 +57,6 @@ int main() {
             Sleep(150); // Tuþ çakýþmasýný önlemek için
         }
 
-        if (GetAsyncKeyState(keyBindings.toggleMenuKey) & 1) { // INSERT tuþuna basýldýðýnda
-            showMenu = !showMenu;
-            std::cout << "[geezy_digital] Menü: " << (showMenu ? "Açýk" : "Kapalý") << std::endl;
-            Sleep(150); // Tuþ çakýþmasýný önlemek için
-        }
-
         if (GetAsyncKeyState(keyBindings.exitKey) & 1) { // END tuþuna basýldýðýnda
             running = false;
             std::cout << "[geezy_digital] Program sonlandýrýlýyor..." << std::endl;
@@ -82,21 +64,7 @@ int main() {
 
         // ESP iþlevselliði burada implemente edilecek
         if (espConfig.enabled) {
-            // Örnek olarak oyuncu listesini gösterelim
-            uintptr_t entityListAddress = processManager.GD_Read<uintptr_t>(processManager.GetBaseModule().base + offsets.dwEntityList);
-            if (entityListAddress) {
-                // Liste boþluklarý ve iþaretçiler
-                uintptr_t listEntry = processManager.GD_Read<uintptr_t>(entityListAddress + 0x10);
-
-                if (listEntry) {
-                    // Oyuncu controller'larý burada iþlenecek
-                    // Bu sadece örnek bir kod - gerçek implementasyon daha detaylý olacak
-                }
-            }
-
-            // ViewMatrix güncelleme örneði
-            uintptr_t viewMatrixAddress = processManager.GetBaseModule().base + offsets.dwViewMatrix;
-            // Matrix verilerini oku ve ESP hesaplamalarýnda kullan
+            // Bellek manipülasyonu kodlarý buraya...
         }
 
         // CPU kullanýmýný azaltmak için kýsa bir bekleme
