@@ -1,6 +1,6 @@
 #include "menu.hpp"
-#include "imgui_impl_win32.h"
-#include "imgui_impl_dx10.h"
+#include "../memory-external/imgui/backends/imgui_impl_win32.h"
+#include "../memory-external/imgui/backends/imgui_impl_dx10.h"
 #include <iostream>
 
 namespace ui {
