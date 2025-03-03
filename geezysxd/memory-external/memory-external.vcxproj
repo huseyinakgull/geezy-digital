@@ -212,21 +212,13 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="config.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="memory\memory.cpp" />
-    <ClCompile Include="offset_manager.cpp" />
-    <ClCompile Include="signature_scanner.cpp" />
-    <ClCompile Include="weapon_skins.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="classes\json.hpp" />
-    <ClInclude Include="config.hpp" />
     <ClInclude Include="memory\handle_hijack.hpp" />
     <ClInclude Include="memory\memory.hpp" />
-    <ClInclude Include="offset_manager.hpp" />
-    <ClInclude Include="signature_scanner.hpp" />
-    <ClInclude Include="weapon_skins.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
