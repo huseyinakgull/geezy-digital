@@ -15,6 +15,21 @@
     <Filter Include="imgui\backends">
       <UniqueIdentifier>{574c6e1a-6d14-48a5-b585-060f8787b685}</UniqueIdentifier>
     </Filter>
+    <Filter Include="src">
+      <UniqueIdentifier>{c02bb0f7-885d-4563-90da-6e627bfe4f1b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\core">
+      <UniqueIdentifier>{6ee095c1-ca44-4e90-ba24-f88e8757c4a4}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\game">
+      <UniqueIdentifier>{a9eb8ece-bcd0-491a-ae9d-a0492a784605}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\ui">
+      <UniqueIdentifier>{d796b45b-656b-4db3-a3e1-99f5c8800ac1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\utils">
+      <UniqueIdentifier>{176af6f6-09f2-450d-8172-4ed04a143d54}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">
@@ -43,6 +58,27 @@
     </ClCompile>
     <ClCompile Include="imgui\backends\imgui_impl_win32.cpp">
       <Filter>imgui\backends</Filter>
+    </ClCompile>
+    <ClCompile Include="overlay.cpp">
+      <Filter>src\core</Filter>
+    </ClCompile>
+    <ClCompile Include="hotkeys.cpp">
+      <Filter>src\core</Filter>
+    </ClCompile>
+    <ClCompile Include="renderer.cpp">
+      <Filter>src\core</Filter>
+    </ClCompile>
+    <ClCompile Include="game_interface.cpp">
+      <Filter>src\game</Filter>
+    </ClCompile>
+    <ClCompile Include="menu.cpp">
+      <Filter>src\ui</Filter>
+    </ClCompile>
+    <ClCompile Include="logger.cpp">
+      <Filter>src\utils</Filter>
+    </ClCompile>
+    <ClCompile Include="memory_manager.cpp">
+      <Filter>src\game</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -78,6 +114,27 @@
     </ClInclude>
     <ClInclude Include="imgui\backends\imgui_impl_win32.h">
       <Filter>imgui\backends</Filter>
+    </ClInclude>
+    <ClInclude Include="overlay.hpp">
+      <Filter>src\core</Filter>
+    </ClInclude>
+    <ClInclude Include="hotkeys.hpp">
+      <Filter>src\core</Filter>
+    </ClInclude>
+    <ClInclude Include="renderer.hpp">
+      <Filter>src\core</Filter>
+    </ClInclude>
+    <ClInclude Include="game_interface.hpp">
+      <Filter>src\game</Filter>
+    </ClInclude>
+    <ClInclude Include="menu.hpp">
+      <Filter>src\ui</Filter>
+    </ClInclude>
+    <ClInclude Include="logger.hpp">
+      <Filter>src\utils</Filter>
+    </ClInclude>
+    <ClInclude Include="memory_manager.hpp">
+      <Filter>src\game</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>
