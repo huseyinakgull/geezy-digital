@@ -9,6 +9,7 @@
 #include "game_interface.hpp"
 #include "menu.hpp"
 #include "logger.hpp"
+#include <imgui/backends/imgui_impl_win32.cpp>
 
 // Global variables
 bool g_isRunning = true;
