@@ -12,7 +12,7 @@ namespace utils {
         INFO,
         SUCCESS,
         WARNING,
-        ERROR
+        ERRORW
     };
 
     class Logger {
@@ -70,7 +70,7 @@ namespace utils {
     }
 
     inline void LogError(const std::string& message) {
-        Logger::GetInstance().Log(LogLevel::ERROR, message);
+        Logger::GetInstance().Log(LogLevel::ERRORW, message);
     }
 
 } // namespace utils

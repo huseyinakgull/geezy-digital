@@ -1,7 +1,9 @@
 #include "menu.hpp"
-#include "imgui_impl_win32.h"
-#include "imgui_impl_dx10.h"
+#include "../memory-external/imgui/imgui.h"
+#include "../memory-external/imgui/backends/imgui_impl_win32.h"
+#include "../memory-external/imgui/backends/imgui_impl_dx10.h"
 #include <iostream>
+#include "logger.hpp"
 
 namespace ui {
 
@@ -22,21 +24,28 @@ namespace ui {
         ImGuiIO& io = ImGui::GetIO();
         io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
 
+        // Enable docking if desired
+        // io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+
+        // Disable ImGui's ini file for configuration
+        io.IniFilename = NULL;
+
         // Initialize style
         InitializeStyle();
 
         // Setup Platform/Renderer backends
         if (!ImGui_ImplWin32_Init(static_cast<HWND>(window))) {
-            std::cout << "[ERROR] Failed to initialize ImGui Win32 backend" << std::endl;
+            utils::LogError("Failed to initialize ImGui Win32 backend");
             return false;
         }
 
         if (!ImGui_ImplDX10_Init(static_cast<ID3D10Device*>(device))) {
-            std::cout << "[ERROR] Failed to initialize ImGui DirectX 10 backend" << std::endl;
+            utils::LogError("Failed to initialize ImGui DirectX 10 backend");
             return false;
         }
 
         m_isInitialized = true;
+        utils::LogSuccess("ImGui initialized successfully");
         return true;
     }
 
@@ -53,15 +62,25 @@ namespace ui {
         // Setup ImGui style
         ImGui::StyleColorsDark();
 
-        // Customize style
+        // Customize style to make it more visible
         ImGuiStyle& style = ImGui::GetStyle();
         style.WindowRounding = 5.0f;
         style.FrameRounding = 3.0f;
         style.GrabRounding = 3.0f;
+        style.Alpha = 1.0f; // Full opacity
 
-        // Set custom colors if desired
-        // style.Colors[ImGuiCol_WindowBg] = ImVec4(0.06f, 0.06f, 0.06f, 0.85f);
-        // etc.
+        // Increase contrast with brighter colors
+        style.Colors[ImGuiCol_WindowBg] = ImVec4(0.10f, 0.10f, 0.10f, 0.95f);
+        style.Colors[ImGuiCol_TitleBg] = ImVec4(0.18f, 0.18f, 0.20f, 1.00f);
+        style.Colors[ImGuiCol_TitleBgActive] = ImVec4(0.30f, 0.30f, 0.70f, 1.00f);
+        style.Colors[ImGuiCol_Header] = ImVec4(0.26f, 0.59f, 0.98f, 0.50f);
+        style.Colors[ImGuiCol_HeaderHovered] = ImVec4(0.26f, 0.59f, 0.98f, 0.70f);
+        style.Colors[ImGuiCol_Button] = ImVec4(0.39f, 0.39f, 0.70f, 0.60f);
+        style.Colors[ImGuiCol_ButtonHovered] = ImVec4(0.41f, 0.41f, 0.80f, 0.75f);
+        style.Colors[ImGuiCol_ButtonActive] = ImVec4(0.43f, 0.43f, 0.90f, 0.90f);
+
+        // Increase text contrast
+        style.Colors[ImGuiCol_Text] = ImVec4(1.00f, 1.00f, 1.00f, 1.00f);
     }
 
     void Menu::NewFrame() {
@@ -91,21 +110,22 @@ namespace ui {
     }
 
     void Menu::RenderMainMenu(game::GameInterface* gameInterface) {
-        // Create ImGui main window
+        // Set display size in case we need to force it
         ImGuiIO& io = ImGui::GetIO();
 
-        // Create a small window in the top-left corner
-        ImGui::SetNextWindowPos(ImVec2(20, 20), ImGuiCond_FirstUseEver);
-        ImGui::SetNextWindowSize(ImVec2(300, 200), ImGuiCond_FirstUseEver);
-        ImGui::SetNextWindowBgAlpha(0.85f); // Semi-transparent background
+        // Debug info for window size
+        utils::LogInfo("ImGui DisplaySize: " + std::to_string(io.DisplaySize.x) + "x" + std::to_string(io.DisplaySize.y));
+
+        // Create a more visible window in the center of the screen
+        ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.5f), ImGuiCond_Once, ImVec2(0.5f, 0.5f));
+        ImGui::SetNextWindowSize(ImVec2(350, 250), ImGuiCond_Once);
+        ImGui::SetNextWindowBgAlpha(0.95f); // Very visible background
 
         ImGuiWindowFlags window_flags =
-            ImGuiWindowFlags_NoCollapse |
-            ImGuiWindowFlags_NoResize |
-            ImGuiWindowFlags_AlwaysAutoResize;
+            ImGuiWindowFlags_NoCollapse;
 
         // Create window with frame and title bar
-        if (!ImGui::Begin("GeezyDigital CS2 Menu", &m_isVisible, window_flags)) {
+        if (!ImGui::Begin("GeezyDigital CS2 Menu v1.0", &m_isVisible, window_flags)) {
             ImGui::End();
             return;
         }
@@ -126,21 +146,32 @@ namespace ui {
 
         ImGui::Separator();
 
-        // Buttons and controls
-        if (ImGui::Button("Reconnect", ImVec2(135, 0))) {
+        // Feature toggles (add actual functionality later)
+        static bool enableFeature1 = false;
+        static bool enableFeature2 = false;
+
+        ImGui::Checkbox("Feature 1 (Example)", &enableFeature1);
+        ImGui::Checkbox("Feature 2 (Example)", &enableFeature2);
+
+        // Buttons with clear visual feedback
+        ImGui::Separator();
+
+        if (ImGui::Button("Reconnect", ImVec2(160, 30))) {
             // Handled by callback
+            utils::LogInfo("Reconnect button clicked");
         }
 
         ImGui::SameLine();
-        if (ImGui::Button("Exit", ImVec2(135, 0))) {
+        if (ImGui::Button("Exit", ImVec2(160, 30))) {
             // Handled by callback
+            utils::LogInfo("Exit button clicked");
         }
 
         ImGui::Separator();
 
         // Usage instructions
         ImGui::PushTextWrapPos(ImGui::GetContentRegionAvail().x);
-        ImGui::TextWrapped("INSERT: Toggle Menu");
+        ImGui::TextWrapped("E: Toggle Menu");
         ImGui::TextWrapped("END: Exit Program");
         ImGui::PopTextWrapPos();
 

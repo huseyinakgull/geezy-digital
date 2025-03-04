@@ -1,6 +1,7 @@
 #include "overlay.hpp"
 #include <dwmapi.h>
 #include <iostream>
+#include "logger.hpp"
 
 #pragma comment(lib, "dwmapi.lib")
 
@@ -11,8 +12,8 @@ namespace core {
 
     Overlay::Overlay()
         : m_overlayWindow(NULL)
-        , m_windowClassName(L"GeezyDigitalOverlay")
-        , m_windowTitle(L"GeezyDigital CS2 Menu")
+        , m_windowClassName("GeezyDigitalOverlay")
+        , m_windowTitle("GeezyDigital CS2 Menu")
     {
     }
 
@@ -21,6 +22,7 @@ namespace core {
     }
 
     ATOM Overlay::RegisterOverlayClass(HINSTANCE hInstance) {
+        const char* className = "GeezyDigitalOverlay";  // Sabit string kullan
         WNDCLASSEX wc = {
             sizeof(WNDCLASSEX),
             CS_CLASSDC,
@@ -28,7 +30,7 @@ namespace core {
             0L, 0L,
             hInstance,
             NULL, NULL, NULL, NULL,
-            L"GeezyDigitalOverlay",
+            className,
             NULL
         };
 
@@ -37,7 +39,7 @@ namespace core {
 
     bool Overlay::Initialize(HWND gameWindow) {
         if (!gameWindow) {
-            std::cout << "[ERROR] Cannot initialize overlay: No game window provided" << std::endl;
+            utils::LogError("Cannot initialize overlay: No game window provided");
             return false;
         }
 
@@ -51,35 +53,44 @@ namespace core {
     bool Overlay::CreateOverlayWindow(HWND gameWindow) {
         RECT gameRect;
         if (!GetWindowRect(gameWindow, &gameRect)) {
-            std::cout << "[ERROR] Failed to get game window rectangle" << std::endl;
+            utils::LogError("Failed to get game window rectangle");
             return false;
         }
 
+        int width = gameRect.right - gameRect.left;
+        int height = gameRect.bottom - gameRect.top;
+
+        utils::LogInfo("Game window size: " + std::to_string(width) + "x" + std::to_string(height));
+
         // Create overlay window with appropriate styles for overlay functionality
         m_overlayWindow = CreateWindowEx(
-            WS_EX_TOPMOST | WS_EX_TRANSPARENT | WS_EX_LAYERED | WS_EX_NOACTIVATE,
+            WS_EX_TOPMOST | WS_EX_LAYERED, // Removed WS_EX_TRANSPARENT initially to allow input
             m_windowClassName.c_str(),
             m_windowTitle.c_str(),
             WS_POPUP,
             gameRect.left, gameRect.top,
-            gameRect.right - gameRect.left, gameRect.bottom - gameRect.top,
+            width, height,
             NULL, NULL, GetModuleHandle(NULL), NULL
         );
 
         if (!m_overlayWindow) {
             DWORD error = GetLastError();
-            std::cout << "[ERROR] Failed to create overlay window. Error code: " << error << std::endl;
+            utils::LogError("Failed to create overlay window. Error code: " + std::to_string(error));
             return false;
         }
 
-        // Make black background transparent (color keying)
-        SetLayeredWindowAttributes(m_overlayWindow, RGB(0, 0, 0), 0, LWA_COLORKEY);
+        // Make fully transparent initially, will be updated based on menu visibility
+        SetLayeredWindowAttributes(m_overlayWindow, RGB(0, 0, 0), 255, LWA_ALPHA);
 
         // Position overlay on top of game window
         SetWindowPos(m_overlayWindow, HWND_TOPMOST,
             gameRect.left, gameRect.top,
-            gameRect.right - gameRect.left, gameRect.bottom - gameRect.top,
+            width, height,
             SWP_SHOWWINDOW);
+
+        // Disable DWM composition effects for better performance
+        BOOL enable = FALSE;
+        DwmSetWindowAttribute(m_overlayWindow, DWMWA_TRANSITIONS_FORCEDISABLED, &enable, sizeof(enable));
 
         // Optional: disable DWM blur effect
         DWM_BLURBEHIND bb = { 0 };
@@ -91,6 +102,7 @@ namespace core {
         ShowWindow(m_overlayWindow, SW_SHOWDEFAULT);
         UpdateWindow(m_overlayWindow);
 
+        utils::LogSuccess("Overlay window created successfully");
         return true;
     }
 
@@ -111,27 +123,38 @@ namespace core {
             return;
         }
 
+        int width = gameRect.right - gameRect.left;
+        int height = gameRect.bottom - gameRect.top;
+
         // Match overlay size and position to game window
         SetWindowPos(
             m_overlayWindow, HWND_TOPMOST,
             gameRect.left, gameRect.top,
-            gameRect.right - gameRect.left, gameRect.bottom - gameRect.top,
+            width, height,
             SWP_NOACTIVATE
         );
     }
 
     void Overlay::SetVisible(bool visible) {
+        if (!IsWindow(m_overlayWindow))
+            return;
+
         // Toggle transparency based on visibility
         LONG ex_style = GetWindowLong(m_overlayWindow, GWL_EXSTYLE);
         if (visible) {
-            // When menu is visible, allow mouse input
+            // When menu is visible, allow mouse input and make window visible
             ex_style &= ~WS_EX_TRANSPARENT;
+            SetWindowLong(m_overlayWindow, GWL_EXSTYLE, ex_style);
+            // Make window more visible when menu is showing
+            SetLayeredWindowAttributes(m_overlayWindow, RGB(0, 0, 0), 230, LWA_ALPHA);
         }
         else {
-            // When menu is hidden, make window click-through
+            // When menu is hidden, make window click-through and mostly transparent
             ex_style |= WS_EX_TRANSPARENT;
+            SetWindowLong(m_overlayWindow, GWL_EXSTYLE, ex_style);
+            // Make window nearly invisible when menu is hidden
+            SetLayeredWindowAttributes(m_overlayWindow, RGB(0, 0, 0), 1, LWA_ALPHA);
         }
-        SetWindowLong(m_overlayWindow, GWL_EXSTYLE, ex_style);
     }
 
     LRESULT CALLBACK Overlay::StaticWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {

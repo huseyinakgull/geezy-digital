@@ -45,7 +45,7 @@ namespace game {
     {
         // Common window class names for CS2
         m_windowClassNames = {
-            "Valve001", "SDL_app", "game", "LWJGL", "Source", "Valve", "CS2"
+            "CS2"
         };
     }
 

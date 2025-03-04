@@ -1,10 +1,17 @@
 #pragma once
 
+// GameInterface sýnýfýný tam olarak tanýmlamak için header'ý dahil edin
 #include "game_interface.hpp"
-#include "imgui.h"
+
+// Windows tipi tanýmlarý için
+#include <windows.h>
+// DirectX tipleri için
+#include <d3d10_1.h>
+
+// Ýmgui baþlýðýný doðrudan dahil edin
+#include "../memory-external/imgui/imgui.h"
 
 namespace ui {
-
     class Menu {
     public:
         Menu();

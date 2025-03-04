@@ -36,7 +36,7 @@ namespace utils {
         case LogLevel::INFO:    return "[INFO]";
         case LogLevel::SUCCESS: return "[SUCCESS]";
         case LogLevel::WARNING: return "[WARNING]";
-        case LogLevel::ERROR:   return "[ERROR]";
+        case LogLevel::ERRORW:   return "[ERROR]";
         default:                return "[UNKNOWN]";
         }
     }
@@ -47,7 +47,7 @@ namespace utils {
         case LogLevel::INFO:    return 7;  // Beyaz
         case LogLevel::SUCCESS: return 10; // Yeþil
         case LogLevel::WARNING: return 14; // Sarý
-        case LogLevel::ERROR:   return 12; // Kýrmýzý
+        case LogLevel::ERRORW:   return 12; // Kýrmýzý
         default:                return 7;  // Beyaz
         }
     }

@@ -26,8 +26,8 @@ namespace core {
         // Get overlay window handle
         HWND GetWindowHandle() const { return m_overlayWindow; }
 
-        // Register window class for overlay
-        static ATOM RegisterOverlayClass(HINSTANCE hInstance);
+        // Register window class for overlay - artýk static deðil
+        ATOM RegisterOverlayClass(HINSTANCE hInstance);
 
         // Set custom window procedure
         void SetWindowProcedure(WNDPROC wndProc) { m_wndProc = wndProc; }
@@ -38,8 +38,8 @@ namespace core {
     private:
         HWND m_overlayWindow;          // Handle to overlay window
         static WNDPROC m_wndProc;      // Custom window procedure
-        std::wstring m_windowClassName; // Window class name
-        std::wstring m_windowTitle;     // Window title
+        std::string m_windowClassName; // Window class name
+        std::string m_windowTitle;     // Window title
 
         // Create the actual window
         bool CreateOverlayWindow(HWND gameWindow);

@@ -3,12 +3,20 @@
 #include <thread>
 #include <chrono>
 #include <Windows.h>
+#include "menu.hpp" 
 #include "overlay.hpp"
 #include "hotkeys.hpp"
 #include "renderer.hpp"
 #include "game_interface.hpp"
-#include "menu.hpp"
 #include "logger.hpp"
+
+// ImGui gerekli header'larýný ekliyoruz
+#include "../memory-external/imgui/imgui.h"
+#include "../memory-external/imgui/backends/imgui_impl_win32.h"
+#include "../memory-external/imgui/backends/imgui_impl_dx10.h"
+
+// ImGui_ImplWin32_WndProcHandler için forward deklarasyonu
+extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
 // Global variables
 bool g_isRunning = true;
@@ -145,7 +153,7 @@ int main() {
     core::HotkeyManager hotkeyManager;
 
     // Register hotkeys
-    hotkeyManager.RegisterHotkey(overlay.GetWindowHandle(), core::HotkeyId::MENU_TOGGLE, 0, VK_INSERT);
+    hotkeyManager.RegisterHotkey(overlay.GetWindowHandle(), core::HotkeyId::MENU_TOGGLE, 0, 'E');
     hotkeyManager.RegisterHotkey(overlay.GetWindowHandle(), core::HotkeyId::EXIT, 0, VK_END);
 
     // Set hotkey callbacks
@@ -157,7 +165,7 @@ int main() {
         g_isRunning = false;
         });
 
-    utils::LogSuccess("Overlay initialized successfully, press INSERT to toggle menu");
+    utils::LogSuccess("Overlay initialized successfully, press E to toggle menu");
 
     // Main message and render loop
     MSG msg;
