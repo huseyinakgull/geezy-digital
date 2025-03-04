@@ -56,17 +56,28 @@ namespace ui {
         bool m_isInitialized;
         Tab m_activeTab;  // Aktif sekmeyi takip etmek için
 
+        // Duyarlý tasarým için ölçeklendirme deðiþkenleri
+        float m_scaleFactor;  // UI ölçeklendirme faktörü
+        ImVec2 m_lastWindowSize; // Son pencere boyutu
+
         // Render the main menu window
         void RenderMainMenu(game::GameInterface* gameInterface);
 
         // Initialize ImGui style
         void InitializeStyle();
 
+        // Ekran boyutuna göre ölçeklendirme hesapla
+        void CalculateScaling();
+
+        // Dinamik boyutlandýrma yardýmcý fonksiyonlarý
+        ImVec2 GetScaledSize(float width, float height);
+        float GetScaledFontSize(float size);
+
         // Tab render functions
         void RenderSettingsTab();
         void RenderVisualsTab();
         void RenderAimbotTab();     // Yeni sekme
-        void RenderMiscTab();     
+        void RenderMiscTab();
         void RenderAccountTab(); // Yeni sekme
         void RenderInfoTab(game::GameInterface* gameInterface);
 
