@@ -114,7 +114,8 @@ namespace core {
         // Set render target
         m_pDevice->OMSetRenderTargets(1, &m_pMainRenderTargetView, NULL);
 
-        // Clear the back buffer to transparent
+        // Clear the back buffer to fully transparent
+        // Using 0.0f alpha will make the background fully transparent
         const float clearColor[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
         m_pDevice->ClearRenderTargetView(m_pMainRenderTargetView, clearColor);
     }

@@ -142,21 +142,26 @@ namespace core {
         // Toggle transparency based on visibility
         LONG ex_style = GetWindowLong(m_overlayWindow, GWL_EXSTYLE);
         if (visible) {
-            // When menu is visible, allow mouse input and make window visible
+            // When menu is visible, allow mouse input but make window fully transparent (just show ImGui)
             ex_style &= ~WS_EX_TRANSPARENT;
+            // Add layered window style if not already there
+            if (!(ex_style & WS_EX_LAYERED))
+                ex_style |= WS_EX_LAYERED;
             SetWindowLong(m_overlayWindow, GWL_EXSTYLE, ex_style);
-            // Make window more visible when menu is showing
-            SetLayeredWindowAttributes(m_overlayWindow, RGB(0, 0, 0), 230, LWA_ALPHA);
+
+            // Set colorkey transparency to make the window background completely transparent
+            // RGB(0,0,0) will be transparent, LWA_COLORKEY flag enables color-based transparency
+            SetLayeredWindowAttributes(m_overlayWindow, RGB(0, 0, 0), 255, LWA_COLORKEY);
         }
         else {
-            // When menu is hidden, make window click-through and mostly transparent
+            // When menu is hidden, make window click-through
             ex_style |= WS_EX_TRANSPARENT;
             SetWindowLong(m_overlayWindow, GWL_EXSTYLE, ex_style);
-            // Make window nearly invisible when menu is hidden
-            SetLayeredWindowAttributes(m_overlayWindow, RGB(0, 0, 0), 1, LWA_ALPHA);
+
+            // Make window fully invisible when menu is hidden
+            SetLayeredWindowAttributes(m_overlayWindow, RGB(0, 0, 0), 0, LWA_ALPHA);
         }
     }
-
     LRESULT CALLBACK Overlay::StaticWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
         // If custom window procedure is set, forward messages to it
         if (m_wndProc) {
