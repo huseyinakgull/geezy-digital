@@ -294,7 +294,7 @@ namespace ui {
 
         // Position the menu in the center of the screen
         ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.5f), ImGuiCond_Once, ImVec2(0.5f, 0.5f));
-        ImGui::SetNextWindowSize(ImVec2(650, 450), ImGuiCond_Once);
+        ImGui::SetNextWindowSize(ImVec2(950, 650), ImGuiCond_Once);
 
         // Configure window flags - Remove title bar and collapse button
         ImGuiWindowFlags window_flags =
@@ -386,6 +386,10 @@ namespace ui {
             m_activeTab = Tab::INFO;
         }
 
+        if (CustomTabButton("Account", m_activeTab == Tab::ACCOUNT, ImVec2(tabWidth, 30))) {
+            m_activeTab = Tab::ACCOUNT;
+        }
+
         ImGui::Spacing();
         CustomSeparator();
         ImGui::Spacing();
@@ -409,6 +413,9 @@ namespace ui {
             break;
         case Tab::INFO:
             RenderInfoTab(gameInterface);
+            break;
+        case Tab::ACCOUNT:
+            RenderAccountTab();
             break;
         }
 
@@ -445,6 +452,133 @@ namespace ui {
         ImGui::Text("E: Menu | END: Exit");
 
         ImGui::End();
+    }
+
+    void Menu::RenderAccountTab() {
+        const float contentWidth = ImGui::GetContentRegionAvail().x;
+        const float columnWidth = (contentWidth - 10) / 2; // Ýki sütun
+
+        // Sol Sütun
+        ImGui::BeginGroup();
+
+        // Kullanýcý Bilgileri
+        CustomGroupBox("Kullanýcý Bilgileri", ImVec2(columnWidth, 180));
+        {
+            static char username[64] = "GeezyUser";
+            static char email[128] = "user@geezy.digital";
+            static char subscriptionPlan = 'P'; // P: Premium, S: Standard
+            static char licenseKey[64] = "GEEZY-XXXX-XXXX-XXXX";
+
+            ImGui::Text("Kullanýcý Adý:");
+            ImGui::Text("%s", username);
+
+            ImGui::Spacing();
+            ImGui::Text("E-posta:");
+            ImGui::Text("%s", email);
+
+            ImGui::Spacing();
+            ImGui::Text("Abonelik Türü:");
+            ImGui::TextColored(
+                subscriptionPlan == 'P' ? ImVec4(0.9f, 0.6f, 0.1f, 1.0f) : ImVec4(0.1f, 0.6f, 0.9f, 1.0f),
+                "%s",
+                subscriptionPlan == 'P' ? "Premium" : "Standart"
+            );
+
+            ImGui::Spacing();
+            ImGui::Text("Lisans Anahtarý:");
+            ImGui::InputText("##LicenseKey", licenseKey, IM_ARRAYSIZE(licenseKey), ImGuiInputTextFlags_ReadOnly);
+
+            if (CustomButton("Kopyala", ImVec2(80, 25))) {
+                // Kopyalama iþlevi
+            }
+            ImGui::SameLine();
+            if (CustomButton("Yenile", ImVec2(80, 25))) {
+                // Yenileme iþlevi
+            }
+        }
+        EndGroupBox();
+
+        ImGui::Spacing();
+
+        // Lisans Doðrulama
+        CustomGroupBox("Lisans Doðrulama", ImVec2(columnWidth, 100));
+        {
+            static char newLicenseKey[64] = "";
+            ImGui::Text("Yeni Lisans Anahtarý Ekle:");
+            ImGui::InputText("##NewLicenseKey", newLicenseKey, IM_ARRAYSIZE(newLicenseKey));
+
+            if (CustomButton("Doðrula ve Etkinleþtir", ImVec2(180, 25))) {
+                // Doðrulama ve etkinleþtirme iþlevi
+            }
+        }
+        EndGroupBox();
+
+        ImGui::EndGroup();
+
+        // Sað Sütun
+        ImGui::SameLine(0, 10);
+        ImGui::BeginGroup();
+
+        // Abonelik Detaylarý
+        CustomGroupBox("Abonelik Detaylarý", ImVec2(columnWidth, 180));
+        {
+            // Test verileri
+            static char startDate[32] = "01/01/2025";
+            static char endDate[32] = "01/01/2026";
+            static int daysLeft = 303;
+            static bool autoRenew = true;
+
+            ImGui::Text("Baþlangýç Tarihi:");
+            ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 1.0f), "%s", startDate);
+
+            ImGui::Spacing();
+            ImGui::Text("Bitiþ Tarihi:");
+            ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 1.0f), "%s", endDate);
+
+            ImGui::Spacing();
+            ImGui::Text("Kalan Gün:");
+            ImGui::TextColored(
+                daysLeft > 30 ? ImVec4(0.0f, 0.8f, 0.0f, 1.0f) :
+                (daysLeft > 7 ? ImVec4(0.9f, 0.6f, 0.1f, 1.0f) : ImVec4(0.9f, 0.1f, 0.1f, 1.0f)),
+                "%d gün", daysLeft
+            );
+
+            ImGui::Spacing();
+            CustomCheckbox("Otomatik Yenileme", &autoRenew);
+
+            ImGui::Spacing();
+            if (CustomButton("Aboneliði Yenile", ImVec2(150, 25))) {
+                // Yenileme iþlevi
+            }
+
+            ImGui::Spacing();
+            if (CustomButton("Ödeme Geçmiþi", ImVec2(150, 25))) {
+                // Ödeme geçmiþi görüntüleme
+            }
+        }
+        EndGroupBox();
+
+        ImGui::Spacing();
+
+        // Güvenlik Ayarlarý
+        CustomGroupBox("Güvenlik Ayarlarý", ImVec2(columnWidth, 100));
+        {
+            static bool twoFactorEnabled = false;
+            CustomCheckbox("Ýki Faktörlü Doðrulama", &twoFactorEnabled);
+
+            ImGui::Spacing();
+            if (CustomButton("Þifre Deðiþtir", ImVec2(150, 25))) {
+                // Þifre deðiþtirme iþlevi
+            }
+
+            ImGui::Spacing();
+            if (CustomButton("Oturumlarý Yönet", ImVec2(150, 25))) {
+                // Oturum yönetimi
+            }
+        }
+        EndGroupBox();
+
+        ImGui::EndGroup();
     }
 
     void Menu::RenderSettingsTab() {
@@ -942,3 +1076,4 @@ namespace ui {
 
         ImGui::EndGroup();
     }
+}

@@ -18,7 +18,8 @@ namespace ui {
         VISUALS,
         AIMBOT,
         MISC,
-        INFO
+        INFO,
+        ACCOUNT
     };
 
     class Menu {
@@ -65,7 +66,8 @@ namespace ui {
         void RenderSettingsTab();
         void RenderVisualsTab();
         void RenderAimbotTab();     // Yeni sekme
-        void RenderMiscTab();       // Yeni sekme
+        void RenderMiscTab();     
+        void RenderAccountTab(); // Yeni sekme
         void RenderInfoTab(game::GameInterface* gameInterface);
 
         // Modern UI helper functions
