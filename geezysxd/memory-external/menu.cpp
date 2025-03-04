@@ -112,10 +112,6 @@ namespace ui {
     void Menu::RenderMainMenu(game::GameInterface* gameInterface) {
         // Set display size in case we need to force it
         ImGuiIO& io = ImGui::GetIO();
-
-        // Debug info for window size
-        utils::LogInfo("ImGui DisplaySize: " + std::to_string(io.DisplaySize.x) + "x" + std::to_string(io.DisplaySize.y));
-
         // Create a more visible window in the center of the screen
         ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.5f), ImGuiCond_Once, ImVec2(0.5f, 0.5f));
         ImGui::SetNextWindowSize(ImVec2(350, 250), ImGuiCond_Once);
@@ -125,19 +121,19 @@ namespace ui {
             ImGuiWindowFlags_NoCollapse;
 
         // Create window with frame and title bar
-        if (!ImGui::Begin("GeezyDigital CS2 Menu v1.0", &m_isVisible, window_flags)) {
+        if (!ImGui::Begin("product by huseyin.", &m_isVisible, window_flags)) {
             ImGui::End();
             return;
         }
 
         // Title
-        ImGui::TextColored(ImVec4(1.0f, 0.4f, 0.0f, 1.0f), "GeezyDigital CS2 Menu");
+        ImGui::TextColored(ImVec4(1.0f, 0.4f, 0.0f, 1.0f), "geezy.digital");
         ImGui::Separator();
 
         // Game connection status
         bool isConnected = gameInterface != nullptr && gameInterface->IsConnected();
         ImGui::TextColored(isConnected ? ImVec4(0.0f, 1.0f, 0.0f, 1.0f) : ImVec4(1.0f, 0.0f, 0.0f, 1.0f),
-            "Game Status: %s", isConnected ? "Connected" : "Not Connected");
+            "Durum: %s", isConnected ? "Baglandi." : "Baglanilamadi.");
 
         if (isConnected) {
             ImGui::Text("Process ID: %u", gameInterface->GetProcessId());
@@ -145,13 +141,6 @@ namespace ui {
         }
 
         ImGui::Separator();
-
-        // Feature toggles (add actual functionality later)
-        static bool enableFeature1 = false;
-        static bool enableFeature2 = false;
-
-        ImGui::Checkbox("Feature 1 (Example)", &enableFeature1);
-        ImGui::Checkbox("Feature 2 (Example)", &enableFeature2);
 
         // Buttons with clear visual feedback
         ImGui::Separator();
