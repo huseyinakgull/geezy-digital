@@ -30,6 +30,9 @@
     <Filter Include="src\utils">
       <UniqueIdentifier>{176af6f6-09f2-450d-8172-4ed04a143d54}</UniqueIdentifier>
     </Filter>
+    <Filter Include="offsets">
+      <UniqueIdentifier>{aa04e70a-0a5c-441d-80c5-28280d1873f1}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">
@@ -136,5 +139,10 @@
     <ClInclude Include="esp.hpp">
       <Filter>src\core</Filter>
     </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\offsets\offsets.json">
+      <Filter>offsets</Filter>
+    </None>
   </ItemGroup>
 </Project>

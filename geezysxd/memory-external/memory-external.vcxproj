@@ -254,6 +254,9 @@
     <ClInclude Include="overlay.hpp" />
     <ClInclude Include="renderer.hpp" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="..\offsets\offsets.json" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>

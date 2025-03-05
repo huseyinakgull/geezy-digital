@@ -1,142 +1,89 @@
-// esp.hpp
 #pragma once
 
 #include <Windows.h>
-#include <vector>
-#include <string>
-#include <map>
-#include "game_interface.hpp"
 #include "memory_manager.hpp"
-#include "imgui/imgui.h"
+#include "../memory-external/imgui/imgui.h"
 
-namespace esp {
+namespace core {
 
-    struct PlayerBones {
-        std::map<std::string, ImVec2> bonePositions;
+    // Vector3 yapýsý - 3D koordinatlar için
+    struct Vector3 {
+        float x, y, z;
     };
 
-    struct PlayerInfo {
-        int team;
-        int health;
-        int armor;
-        std::string name;
-        ImVec2 origin;
-        ImVec2 head;
-        PlayerBones bones;
-        bool isDefusing;
-        float flashAlpha;
-        std::string weapon;
-        int money;
+    // Vector2 yapýsý - 2D koordinatlar için
+    struct Vector2 {
+        float x, y;
     };
 
-    struct C4Info {
-        ImVec2 position;
+    // ViewMatrix - Dünya koordinatlarýný ekran koordinatlarýna dönüþtürmek için 4x4 matris
+    struct ViewMatrix {
+        float m[4][4];
     };
 
     class ESP {
     public:
-        ESP();
-        ~ESP();
+        ESP(Memory::MemoryManager* memoryManager);
 
-        // ESP özelliklerini kontrol eden deðiþkenler
-        bool showBoxESP = true;
-        bool showSkeletonESP = false;
-        bool showHeadTracker = false;
-        bool showExtraFlags = true;
-        bool teamESP = false; // Takým arkadaþlarýný gösterme
-        int renderDistance = 5000;
-        int flagRenderDistance = 200;
+        // ESP özelliklerini kontrol etmek için ayarlayýcýlar
+        void SetEnabled(bool enabled) { m_enabled = enabled; }
+        void SetTeamESP(bool enabled) { m_teamESP = enabled; }
+        void SetBoxESP(bool enabled) { m_boxESP = enabled; }
+        void SetNameESP(bool enabled) { m_nameESP = enabled; }
+        void SetHealthESP(bool enabled) { m_healthESP = enabled; }
+        void SetDistanceESP(bool enabled) { m_distanceESP = enabled; }
+        void SetHeadpointESP(bool enabled) { m_headpointESP = enabled; }
 
-        // Renk ayarlarý
-        ImVec4 boxColorEnemy = ImVec4(1.0f, 0.0f, 0.0f, 1.0f);
-        ImVec4 boxColorTeam = ImVec4(0.0f, 1.0f, 0.0f, 1.0f);
-        ImVec4 skeletonColorEnemy = ImVec4(1.0f, 0.5f, 0.0f, 1.0f);
-        ImVec4 skeletonColorTeam = ImVec4(0.0f, 0.5f, 1.0f, 1.0f);
-        ImVec4 nameColor = ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
-        ImVec4 distanceColor = ImVec4(0.7f, 0.7f, 0.7f, 1.0f);
+        // ESP özelliklerinin durumunu kontrol etmek için eriþimciler
+        bool IsEnabled() const { return m_enabled; }
+        bool IsTeamESP() const { return m_teamESP; }
+        bool IsBoxESP() const { return m_boxESP; }
+        bool IsNameESP() const { return m_nameESP; }
+        bool IsHealthESP() const { return m_healthESP; }
+        bool IsDistanceESP() const { return m_distanceESP; }
+        bool IsHeadpointESP() const { return m_headpointESP; }
 
-        // Kemik baðlantýlarý
-        std::vector<std::pair<std::string, std::string>> boneConnections = {
-            {"neck_0", "spine_1"},
-            {"spine_1", "spine_2"},
-            {"spine_2", "pelvis"},
-            {"spine_1", "arm_upper_L"},
-            {"arm_upper_L", "arm_lower_L"},
-            {"arm_lower_L", "hand_L"},
-            {"spine_1", "arm_upper_R"},
-            {"arm_upper_R", "arm_lower_R"},
-            {"arm_lower_R", "hand_R"},
-            {"pelvis", "leg_upper_L"},
-            {"leg_upper_L", "leg_lower_L"},
-            {"leg_lower_L", "ankle_L"},
-            {"pelvis", "leg_upper_R"},
-            {"leg_upper_R", "leg_lower_R"},
-            {"leg_lower_R", "ankle_R"}
-        };
-
-        // Kemik haritasý (hangi kemiðin hangi indekste olduðunu belirtir)
-        std::map<std::string, int> boneMap = {
-            {"head", 6},
-            {"neck_0", 5},
-            {"spine_1", 4},
-            {"spine_2", 2},
-            {"pelvis", 0},
-            {"arm_upper_L", 8},
-            {"arm_lower_L", 9},
-            {"hand_L", 10},
-            {"arm_upper_R", 13},
-            {"arm_lower_R", 14},
-            {"hand_R", 15},
-            {"leg_upper_L", 22},
-            {"leg_lower_L", 23},
-            {"ankle_L", 24},
-            {"leg_upper_R", 25},
-            {"leg_lower_R", 26},
-            {"ankle_R", 27}
-        };
-
-        // ESP render fonksiyonu
-        void Render(game::GameInterface* gameInterface);
+        // ImGui çizim listesine ESP özelliklerini çiz
+        void Render(ImDrawList* drawList, int screenWidth, int screenHeight);
 
     private:
-        struct Offsets {
-            uintptr_t dwEntityList = 0x0;
-            uintptr_t dwLocalPlayerController = 0x0;
-            uintptr_t dwViewMatrix = 0x0;
-            uintptr_t dwPlantedC4 = 0x0;
-            uintptr_t m_hPlayerPawn = 0x0;
-            uintptr_t m_iTeamNum = 0x0;
-            uintptr_t m_vOldOrigin = 0x0;
-            uintptr_t m_iHealth = 0x0;
-            uintptr_t m_ArmorValue = 0x0;
-            uintptr_t m_pGameSceneNode = 0x0;
-            uintptr_t m_sSanitizedPlayerName = 0x0;
-            uintptr_t m_bIsDefusing = 0x0;
-            uintptr_t m_pInGameMoneyServices = 0x0;
-            uintptr_t m_iAccount = 0x0;
-            uintptr_t m_flFlashOverlayAlpha = 0x0;
-            uintptr_t m_pClippingWeapon = 0x0;
-            uintptr_t m_szName = 0x0;
-            uintptr_t m_vecAbsOrigin = 0x0;
-        };
+        Memory::MemoryManager* m_memoryManager;
 
-        Offsets offsets;
-        int localTeam = 0;
-        ImVec2 localOrigin = ImVec2(0, 0);
-        bool isC4Planted = false;
-        C4Info c4Info;
-        std::vector<PlayerInfo> players;
+        // ESP özellikleri
+        bool m_enabled;
+        bool m_teamESP;
+        bool m_boxESP;
+        bool m_nameESP;
+        bool m_healthESP;
+        bool m_distanceESP;
+        bool m_headpointESP;
 
-        // View matrix
-        struct ViewMatrix {
-            float matrix[16];
-        };
+        // Oyuncu varlýðýný al (entity)
+        uintptr_t GetPlayerEntity(int index);
 
-        // Yardýmcý fonksiyonlar
-        bool LoadOffsets();
-        void UpdatePlayerData(game::GameInterface* gameInterface);
-        ImVec2 WorldToScreen(const ViewMatrix& viewMatrix, const float* position, int screenWidth, int screenHeight);
-        float CalculateDistance(const ImVec2& a, const ImVec2& b);
+        // Oyuncu saðlýðýný al
+        int GetPlayerHealth(uintptr_t playerEntity);
+
+        // Oyuncu takýmýný al
+        int GetPlayerTeam(uintptr_t playerEntity);
+
+        // Oyuncu pozisyonunu al
+        Vector3 GetPlayerPosition(uintptr_t playerEntity);
+
+        // Oyuncu ismini al
+        std::string GetPlayerName(uintptr_t playerEntity);
+
+        // Lokal oyuncuyu al
+        uintptr_t GetLocalPlayer();
+
+        // View Matrix'i al
+        bool GetViewMatrix(ViewMatrix& matrix);
+
+        // 3D dünya koordinatlarýný 2D ekran koordinatlarýna dönüþtür
+        bool WorldToScreen(const Vector3& pos, Vector2& screen, const ViewMatrix& vm, int screenWidth, int screenHeight);
+
+        // Ýki 3D nokta arasýndaki mesafeyi hesapla
+        float GetDistance(const Vector3& p1, const Vector3& p2);
     };
 
-} // namespace esp
+} // namespace core

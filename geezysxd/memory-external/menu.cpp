@@ -3,6 +3,7 @@
 #include "../memory-external/imgui/backends/imgui_impl_win32.h"
 #include "../memory-external/imgui/backends/imgui_impl_dx10.h"
 #include <iostream>
+#include "game_interface.hpp"
 #include "logger.hpp"
 #include <algorithm>
 
@@ -16,11 +17,16 @@ namespace ui {
         , m_activeTab(Tab::SETTINGS)
         , m_scaleFactor(1.0f)
         , m_lastWindowSize(ImVec2(0, 0))
+        , m_esp(nullptr)
     {
     }
 
     Menu::~Menu() {
         Shutdown();
+        if (m_esp) {
+            delete m_esp;
+            m_esp = nullptr;
+        }
     }
 
     bool Menu::Initialize(void* window, void* device) {
@@ -181,6 +187,11 @@ namespace ui {
 
         if (m_isVisible) {
             RenderMainMenu(gameInterface);
+        }
+
+        if (!m_esp && gameInterface && gameInterface->GetMemoryManager()) {
+            m_esp = new core::ESP(gameInterface->GetMemoryManager());
+            utils::LogInfo("ESP module initialized");
         }
     }
 
@@ -790,8 +801,10 @@ namespace ui {
         // ESP Settings - Tam yükseklik
         CustomGroupBox("ESP Settings", ImVec2(columnWidth, leftGroupHeight));
         {
-            static bool espEnabled = false;
-            CustomCheckbox("ESP Enabled", &espEnabled);
+            bool espEnabled = m_esp->IsEnabled();
+            if (CustomCheckbox("ESP Enabled", &espEnabled)) {
+                m_esp->SetEnabled(espEnabled);
+            }
 
             ImGui::BeginDisabled(!espEnabled);
 

@@ -7,7 +7,7 @@
 #include <windows.h>
 // DirectX tipleri için
 #include <d3d10_1.h>
-
+#include "../memory-external/esp.hpp"
 // Imgui baþlýðýný doðrudan dahil edin
 #include "../memory-external/imgui/imgui.h"
 
@@ -26,6 +26,9 @@ namespace ui {
     public:
         Menu();
         ~Menu();
+
+
+        core::ESP* GetESP() const { return m_esp; }
 
         // Initialize ImGui
         bool Initialize(void* window, void* device);
@@ -56,6 +59,7 @@ namespace ui {
         bool m_isInitialized;
         Tab m_activeTab;  // Aktif sekmeyi takip etmek için
 
+        core::ESP* m_esp; // ESP özelliði için pointer
         // Duyarlý tasarým için ölçeklendirme deðiþkenleri
         float m_scaleFactor;  // UI ölçeklendirme faktörü
         ImVec2 m_lastWindowSize; // Son pencere boyutu

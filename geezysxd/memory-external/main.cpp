@@ -3,6 +3,7 @@
 #include <thread>
 #include <chrono>
 #include <Windows.h>
+#include <filesystem>
 #include "menu.hpp" 
 #include "overlay.hpp"
 #include "hotkeys.hpp"
@@ -27,6 +28,32 @@ void GameConnectionThread(game::GameInterface* gameInterface) {
             utils::LogInfo("Attempting to connect to game...");
             if (gameInterface->Initialize("cs2.exe")) {
                 utils::LogSuccess("Connected to CS2 successfully");
+
+                // Load offsets from JSON file
+                auto memoryManager = gameInterface->GetMemoryManager();
+                if (memoryManager) {
+                    // Try to find offsets.json in the executable directory first
+                    std::string exePath = std::filesystem::current_path().string();
+                    std::string offsetsPath = exePath + "\\offsets.json";
+
+                    // If not found, try in the offsets subdirectory
+                    if (!std::filesystem::exists(offsetsPath)) {
+                        offsetsPath = exePath + "\\offsets\\offsets.json";
+                    }
+
+                    if (std::filesystem::exists(offsetsPath)) {
+                        utils::LogInfo("Loading offsets from: " + offsetsPath);
+                        if (memoryManager->LoadOffsets(offsetsPath)) {
+                            utils::LogSuccess("Offsets loaded successfully");
+                        }
+                        else {
+                            utils::LogError("Failed to load offsets from: " + offsetsPath);
+                        }
+                    }
+                    else {
+                        utils::LogError("Offsets file not found. Looked in: " + offsetsPath);
+                    }
+                }
             }
             else {
                 utils::LogError("Failed to connect to CS2");
@@ -185,6 +212,22 @@ int main() {
         menu.NewFrame();
         menu.Render(g_menuVisible, &gameInterface);
         renderer.BeginFrame();
+
+        auto esp = menu.GetESP();
+        if (esp && esp->IsEnabled() && gameInterface.IsConnected()) {
+            // Ekran boyutlarýný al
+            RECT rect;
+            GetClientRect(overlay.GetWindowHandle(), &rect);
+            int screenWidth = rect.right - rect.left;
+            int screenHeight = rect.bottom - rect.top;
+
+            // ImGui background draw list al
+            ImDrawList* drawList = ImGui::GetBackgroundDrawList();
+
+            // ESP'yi çiz
+            esp->Render(drawList, screenWidth, screenHeight);
+        }
+
         menu.RenderDrawData();
 
         if (!renderer.EndFrame()) {
