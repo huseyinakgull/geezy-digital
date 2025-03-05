@@ -24,6 +24,9 @@ namespace Memory {
         std::string processName;
         json offsets;
 
+        // Helper function to convert offset to uintptr_t 
+        uintptr_t ParseOffset(const json& offsetValue);
+
     public:
         MemoryManager(const std::string& targetProcess);
         ~MemoryManager();

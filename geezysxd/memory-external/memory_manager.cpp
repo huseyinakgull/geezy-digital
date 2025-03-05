@@ -1,7 +1,37 @@
 #include "memory_manager.hpp"
 #include <iomanip>
+#include <sstream>
+#include <regex>
 
 namespace Memory {
+
+    uintptr_t MemoryManager::ParseOffset(const json& offsetValue) {
+        // Check if the offset is a string (potentially hex or decimal)
+        if (offsetValue.is_string()) {
+            std::string offsetStr = offsetValue.get<std::string>();
+
+            // Check if it's a hexadecimal string
+            if (offsetStr.substr(0, 2) == "0x") {
+                return std::stoull(offsetStr, nullptr, 16);
+            }
+
+            // Assume it's a decimal string
+            return std::stoull(offsetStr, nullptr, 10);
+        }
+
+        // If it's already a number, return it directly
+        if (offsetValue.is_number_unsigned()) {
+            return offsetValue.get<uintptr_t>();
+        }
+
+        // If a signed number, convert safely
+        if (offsetValue.is_number_integer()) {
+            return static_cast<uintptr_t>(offsetValue.get<intptr_t>());
+        }
+
+        LogError("Invalid offset type: cannot convert to uintptr_t");
+        return 0;
+    }
 
     MemoryManager::MemoryManager(const std::string& targetProcess) : processName(targetProcess) {
         LogInfo("Initializing memory manager...");
@@ -49,7 +79,7 @@ namespace Memory {
     bool MemoryManager::LoadModule(const std::string& moduleName) {
         moduleBase = GetModuleBaseAddress(moduleName);
         if (moduleBase != 0) {
-            LogSuccess("Module loaded: " + moduleName + " (Base: 0x" + std::to_string(moduleBase) + ")");
+            LogSuccess("Module loaded: " + moduleName + " (Base: " + std::to_string(moduleBase) + ")");
             return true;
         }
 
@@ -91,7 +121,7 @@ namespace Memory {
             }
 
             if (found) {
-                LogSuccess("Signature found: 0x" + std::to_string(start + i));
+                LogSuccess("Signature found: " + std::to_string(start + i));
                 return start + i;
             }
         }
@@ -120,7 +150,7 @@ namespace Memory {
 
     uintptr_t MemoryManager::GetOffset(const std::string& offsetName) {
         if (offsets.contains(offsetName)) {
-            return offsets[offsetName].get<uintptr_t>();
+            return ParseOffset(offsets[offsetName]);
         }
 
         LogError("Offset not found: " + offsetName);
