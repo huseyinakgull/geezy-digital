@@ -217,6 +217,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="esp.cpp" />
     <ClCompile Include="game_interface.cpp" />
     <ClCompile Include="hotkeys.cpp" />
     <ClCompile Include="imgui\backends\imgui_impl_dx10.cpp" />
@@ -235,6 +236,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="classes\json.hpp" />
+    <ClInclude Include="esp.hpp" />
     <ClInclude Include="game_interface.hpp" />
     <ClInclude Include="hotkeys.hpp" />
     <ClInclude Include="imgui\backends\imgui_impl_dx10.h" />
