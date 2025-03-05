@@ -628,14 +628,14 @@ namespace ui {
         CustomGroupBox("General Settings", ImVec2(columnWidth, leftGroupHeight * 0.45f));
         {
             // Mevcut içerik buraya...
-            static bool vsync = true;
+            static bool vsync = false;
             CustomCheckbox("VSync", &vsync);
 
             static int refreshRate = 60;
             ImGui::TextUnformatted("Refresh Rate");
             CustomSliderInt("##RefreshRate", &refreshRate, 30, 240, "%d");
 
-            static bool overlay = true;
+            static bool overlay = false;
             CustomCheckbox("Overlay Enabled", &overlay);
 
             // Ýsteðe baðlý olarak daha fazla ayar ekleyebilirsiniz...
@@ -720,12 +720,12 @@ namespace ui {
             ImGui::Text("Maximum FPS");
             CustomSliderInt("##MaxFPS", &maxFps, 30, 300, "%d");
 
-            static bool threadedRendering = true;
+            static bool threadedRendering = false;
             CustomCheckbox("Threaded Rendering", &threadedRendering);
 
             // Ek performans ayarlarý
             ImGui::Spacing();
-            static bool multiCoreRendering = true;
+            static bool multiCoreRendering = false;
             CustomCheckbox("Multi-Core Rendering", &multiCoreRendering);
 
             ImGui::Spacing();
@@ -734,11 +734,11 @@ namespace ui {
             CustomSliderInt("##MemoryLimit", &memoryLimit, 128, 1024, "%d MB");
 
             ImGui::Spacing();
-            static bool asyncTextureLoading = true;
+            static bool asyncTextureLoading = false;
             CustomCheckbox("Async Texture Loading", &asyncTextureLoading);
 
             ImGui::Spacing();
-            static bool modelCaching = true;
+            static bool modelCaching = false;
             CustomCheckbox("Model Caching", &modelCaching);
         }
         EndGroupBox();
@@ -790,24 +790,24 @@ namespace ui {
         // ESP Settings - Tam yükseklik
         CustomGroupBox("ESP Settings", ImVec2(columnWidth, leftGroupHeight));
         {
-            static bool espEnabled = true;
+            static bool espEnabled = false;
             CustomCheckbox("ESP Enabled", &espEnabled);
 
             ImGui::BeginDisabled(!espEnabled);
 
-            static bool showBox = true;
+            static bool showBox = false;
             CustomCheckbox("Show Box", &showBox);
 
-            static bool showHealth = true;
+            static bool showHealth = false;
             CustomCheckbox("Show Health", &showHealth);
 
-            static bool showName = true;
+            static bool showName = false;
             CustomCheckbox("Show Name", &showName);
 
             static bool showDistance = false;
             CustomCheckbox("Show Distance", &showDistance);
 
-            static bool showWeapon = true;
+            static bool showWeapon = false;
             CustomCheckbox("Show Weapon", &showWeapon);
 
             // Yeni opsiyonlar
@@ -888,7 +888,7 @@ namespace ui {
             CustomSliderFloat("##PulseRate", &pulseRate, 0.5f, 2.0f, "%.1f Hz");
 
             ImGui::Text("Glow Through Walls");
-            static bool glowThroughWalls = true;
+            static bool glowThroughWalls = false;
             CustomCheckbox("##GlowThroughWalls", &glowThroughWalls);
 
             ImGui::EndDisabled();
@@ -983,13 +983,13 @@ namespace ui {
             static float aimbotSmoothing = 1.0f;
             CustomSliderFloat("##AimbotSmoothing", &aimbotSmoothing, 1.0f, 20.0f, "%.1f");
 
-            static bool visibilityCheck = true;
+            static bool visibilityCheck = false;
             CustomCheckbox("Visibility Check", &visibilityCheck);
 
-            static bool teamCheck = true;
+            static bool teamCheck = false;
             CustomCheckbox("Team Check", &teamCheck);
 
-            static bool drawFov = true;
+            static bool drawFov = false;
             CustomCheckbox("Draw FOV Circle", &drawFov);
 
             // Ek aimbot ayarlarý
@@ -1024,7 +1024,7 @@ namespace ui {
             ImGui::Spacing();
             ImGui::Text("Priority List");
 
-            static bool priorityHead = true;
+            static bool priorityHead = false;
             static bool priorityBody = false;
             static bool priorityArms = false;
             static bool priorityLegs = false;
@@ -1068,10 +1068,10 @@ namespace ui {
             static int triggerbotDuration = 100;
             CustomSliderInt("##TriggerbotDuration", &triggerbotDuration, 10, 300, "%d ms");
 
-            static bool visibilityCheck = true;
+            static bool visibilityCheck = false;
             CustomCheckbox("Visibility Check", &visibilityCheck);
 
-            static bool teamCheck = true;
+            static bool teamCheck = false;
             CustomCheckbox("Team Check", &teamCheck);
 
             ImGui::Spacing();
@@ -1081,9 +1081,9 @@ namespace ui {
             CustomCombo("##TriggerWhen", &triggerWhen, triggerOptions, IM_ARRAYSIZE(triggerOptions));
 
             if (triggerWhen == 3) { // "On Custom" seçildiyse
-                static bool triggerHead = true;
-                static bool triggerChest = true;
-                static bool triggerStomach = true;
+                static bool triggerHead = false;
+                static bool triggerChest = false;
+                static bool triggerStomach = false;
                 static bool triggerArms = false;
                 static bool triggerLegs = false;
 
@@ -1122,7 +1122,7 @@ namespace ui {
             CustomSliderFloat("##RCSY", &rcsY, 0.0f, 2.0f, "%.1f");
 
             ImGui::Spacing();
-            static bool smoothRCS = true;
+            static bool smoothRCS = false;
             CustomCheckbox("Smooth RCS", &smoothRCS);
 
             ImGui::Text("RCS Smoothing");
@@ -1351,7 +1351,7 @@ namespace ui {
             static bool dynamicCrosshair = false;
             CustomCheckbox("Dynamic Crosshair", &dynamicCrosshair);
 
-            static bool crosshairOutline = true;
+            static bool crosshairOutline = false;
             CustomCheckbox("Crosshair Outline", &crosshairOutline);
 
             ImGui::EndDisabled();
@@ -1763,7 +1763,7 @@ namespace ui {
             static char startDate[32] = "01/01/2025";
             static char endDate[32] = "01/01/2026";
             static int daysLeft = 303;
-            static bool autoRenew = true;
+            static bool autoRenew = false;
 
             // Abonelik durumu görsel gösterimi
             ImGui::Text("Subscription Status");
@@ -1889,7 +1889,7 @@ namespace ui {
             }
 
             ImGui::Spacing();
-            static bool loginNotifications = true;
+            static bool loginNotifications = false;
             CustomCheckbox("Login Notifications", &loginNotifications);
 
             ImGui::Spacing();

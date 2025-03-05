@@ -10,22 +10,17 @@
 #include "game_interface.hpp"
 #include "logger.hpp"
 
-// ImGui gerekli header'larýný ekliyoruz
 #include "../memory-external/imgui/imgui.h"
 #include "../memory-external/imgui/backends/imgui_impl_win32.h"
 #include "../memory-external/imgui/backends/imgui_impl_dx10.h"
 
-// ImGui_ImplWin32_WndProcHandler için forward deklarasyonu
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
-// Global variables
 bool g_isRunning = true;
 bool g_menuVisible = true;
 
-// Forward declarations
 LRESULT CALLBACK CustomWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
-// Background thread to manage game connection
 void GameConnectionThread(game::GameInterface* gameInterface) {
     while (g_isRunning) {
         if (!gameInterface->IsConnected()) {
@@ -39,7 +34,6 @@ void GameConnectionThread(game::GameInterface* gameInterface) {
             }
         }
         else {
-            // Update connection status (check if game is still running)
             if (!gameInterface->UpdateConnectionStatus()) {
                 utils::LogWarning("Game connection lost, will retry");
             }
@@ -49,9 +43,7 @@ void GameConnectionThread(game::GameInterface* gameInterface) {
     }
 }
 
-// Custom window procedure implementation
 LRESULT CALLBACK CustomWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
-    // Let ImGui handle its messages
     if (ImGui_ImplWin32_WndProcHandler(hWnd, msg, wParam, lParam))
         return true;
 
@@ -59,11 +51,10 @@ LRESULT CALLBACK CustomWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam
     case WM_SIZE:
         return 0;
     case WM_SYSCOMMAND:
-        if ((wParam & 0xfff0) == SC_KEYMENU) // Disable ALT application menu
+        if ((wParam & 0xfff0) == SC_KEYMENU)
             return 0;
         break;
     case WM_HOTKEY:
-        // Process hotkey messages
         if (wParam == static_cast<int>(core::HotkeyId::MENU_TOGGLE)) {
             g_menuVisible = !g_menuVisible;
             utils::LogInfo(std::string("Menu ") + (g_menuVisible ? "shown" : "hidden"));
@@ -85,11 +76,9 @@ LRESULT CALLBACK CustomWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam
 }
 
 int main() {
-    // Initialize logger
     utils::Logger::GetInstance().InitializeFileOutput("cs2_overlay.log");
     utils::LogInfo("Starting GeezyDigital CS2 Menu");
 
-    // Create game interface
     game::GameInterface gameInterface;
 
     // Start game connection thread
@@ -214,8 +203,6 @@ int main() {
 
     // Unregister hotkeys
     hotkeyManager.UnregisterAllHotkeys(overlay.GetWindowHandle());
-
-    // Wait for thread to finish
     connectionThread.join();
 
     // Shutdown systems
