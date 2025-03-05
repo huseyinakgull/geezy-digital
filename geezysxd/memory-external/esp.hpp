@@ -99,7 +99,6 @@ namespace esp {
         void Render(game::GameInterface* gameInterface);
 
     private:
-        // Kullanýlacak offsetler için veri yapýlarý
         struct Offsets {
             uintptr_t dwEntityList = 0x0;
             uintptr_t dwLocalPlayerController = 0x0;
@@ -122,8 +121,6 @@ namespace esp {
         };
 
         Offsets offsets;
-
-        // ESP Verileri
         int localTeam = 0;
         ImVec2 localOrigin = ImVec2(0, 0);
         bool isC4Planted = false;

@@ -15,9 +15,7 @@ namespace esp {
     }
 
     bool ESP::LoadOffsets() {
-        // Offset deðerlerini JSON dosyasýndan veya hard-coded olarak yükle
-        // Þimdilik temel offsetleri tanýmlayalým
-        offsets.dwEntityList = 0x17C1950;
+        offsets.dwEntityList = 0x1A36A00;
         offsets.dwLocalPlayerController = 0x1810EC0;
         offsets.dwViewMatrix = 0x1820150;
         offsets.dwPlantedC4 = 0x188E440;
